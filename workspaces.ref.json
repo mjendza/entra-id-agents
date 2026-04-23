@@ -1,0 +1,10 @@
+{
+  "defaultWorkspace": "prod",
+  "workspaces": {
+    "prod": {
+      "subscriptionId": "",
+      "resourceGroup": "",
+      "workspaceId": ""
+    }
+  }
+}

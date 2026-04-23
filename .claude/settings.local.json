@@ -1,0 +1,11 @@
+{
+  "enabledMcpjsonServers": [
+    "Lokka-Microsoft",
+    "Azure-Mcp"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__Azure-Mcp__monitor"
+    ]
+  }
+}

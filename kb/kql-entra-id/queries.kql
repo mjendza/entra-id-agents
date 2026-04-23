@@ -1,0 +1,239 @@
+// queries.kql — KQL snippets for Entra ID investigations
+// Curated by entra-kb-curator. Each block is tagged with its source.
+// Target: Log Analytics workspace receiving Microsoft Entra diagnostic settings
+// (SigninLogs, AuditLogs, AADNonInteractiveUserSignInLogs, AADServicePrincipalSignInLogs,
+//  AADManagedIdentitySignInLogs, AADProvisioningLogs, MicrosoftGraphActivityLogs,
+//  AADUserRiskEvents, RiskyUsers, etc.).
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/monitoring-health/tutorial-configure-log-analytics-workspace
+// Quick start — basic SigninLogs samples
+// ============================================================================
+
+// Take 10 random entries
+SigninLogs
+| take 10;
+
+// Successful Conditional Access sign-ins
+SigninLogs
+| where ConditionalAccessStatus == "success"
+| project UserDisplayName, ConditionalAccessStatus;
+
+// Aggregate count of successful sign-ins by user by day
+SigninLogs
+| where ConditionalAccessStatus == "success"
+| summarize SuccessfulSignIns = count() by UserDisplayName, bin(TimeGenerated, 1d);
+
+// Count sign-ins by client app type
+SigninLogs
+| summarize count() by ClientAppUsed;
+
+// Daily sign-in volume
+SigninLogs
+| summarize NumberOfEntries = count() by bin(TimeGenerated, 1d);
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/monitoring-health/tutorial-configure-log-analytics-workspace
+// AuditLogs — role change tracking and joins
+// ============================================================================
+
+// Count role additions over last 30 days
+AuditLogs
+| where TimeGenerated > ago(30d)
+| where OperationName contains "Add member to role"
+| summarize count() by OperationName, Identity;
+
+// Pivot role-change counts by operation name
+AuditLogs
+| where TimeGenerated > ago(30d)
+| where OperationName contains "Add member to role"
+| project OperationName, Identity
+| evaluate pivot(OperationName);
+
+// Inner join: correlate newly added users with their first sign-in
+AuditLogs
+| where OperationName contains "Add User"
+| extend UserPrincipalName = tostring(TargetResources[0].userPrincipalName)
+| project TimeGenerated, UserPrincipalName
+| join kind=inner (SigninLogs) on UserPrincipalName
+| summarize arg_min(TimeGenerated, *) by UserPrincipalName
+| extend SignInDate = TimeGenerated;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/monitoring-health/howto-analyze-activity-logs-log-analytics
+// Common investigative queries
+// ============================================================================
+
+// Apps with the most sign-ins in the last 7 days
+SigninLogs
+| where CreatedDateTime >= ago(7d)
+| summarize signInCount = count() by AppDisplayName
+| sort by signInCount desc;
+
+// Risky sign-in events (Entra ID Protection)
+SigninLogs
+| where RiskState contains "atRisk";
+
+// Top audit events over the last week
+AuditLogs
+| where TimeGenerated >= ago(7d)
+| summarize auditCount = count() by OperationName
+| sort by auditCount desc;
+
+// Provisioning events per day, grouped by action
+AADProvisioningLogs
+| where TimeGenerated > ago(7d)
+| summarize count() by Action, bin(TimeGenerated, 1d);
+
+// Top 100 provisioning events with expanded identity context
+AADProvisioningLogs
+| extend SourceIdentity = parse_json(SourceIdentity)
+| extend TargetIdentity = parse_json(TargetIdentity)
+| extend ServicePrincipal = parse_json(ServicePrincipal)
+| where tostring(SourceIdentity.identityType) == "Group"
+| project tostring(ServicePrincipal.Id), tostring(ServicePrincipal.Name),
+          ModifiedProperties, JobId, Id, CycleId, ChangeId, Action,
+          SourceIdentity.identityType, SourceIdentity.details,
+          TargetIdentity.identityType, TargetIdentity.details, ProvisioningSteps
+| take 100;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/monitoring-health/howto-analyze-activity-logs-log-analytics
+// Merge sign-in records that share a single CorrelationId
+// (fixes the "duplicate sign-in rows" illusion in Log Analytics)
+// ============================================================================
+SigninLogs
+| summarize
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated),
+    FinalStatus = arg_max(TimeGenerated, ResultType, ConditionalAccessStatus),
+    Count = count()
+    by CorrelationId, UserPrincipalName;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/azure/sentinel/datalake/kql-sample-queries
+// Sentinel data lake — anomalous sign-in locations (trend analysis)
+// ============================================================================
+SigninLogs
+| where TimeGenerated > ago(1d)
+| extend locationString = strcat(tostring(LocationDetails["countryOrRegion"]), "/",
+                                 tostring(LocationDetails["state"]), "/",
+                                 tostring(LocationDetails["city"]), ";")
+| project TimeGenerated, AppDisplayName, UserPrincipalName, locationString
+| make-series dLocationCount = dcount(locationString) on TimeGenerated step 1d
+    by UserPrincipalName, AppDisplayName
+| extend (RSquare, Slope, Variance, RVariance, Interception, LineFit) = series_fit_line(dLocationCount)
+| top 3 by Slope desc
+| join kind=inner (
+    SigninLogs
+    | extend locationString = strcat(tostring(LocationDetails["countryOrRegion"]), "/",
+                                     tostring(LocationDetails["state"]), "/",
+                                     tostring(LocationDetails["city"]), ";")
+    | summarize locationList = makeset(locationString),
+                threeDayWindowLocationCount = dcount(locationString)
+        by AppDisplayName, UserPrincipalName, timerange = bin(TimeGenerated, 21d)
+) on AppDisplayName, UserPrincipalName
+| order by UserPrincipalName, timerange asc
+| project timerange, AppDisplayName, UserPrincipalName,
+          threeDayWindowLocationCount, locationList
+| order by AppDisplayName, UserPrincipalName, timerange asc
+| extend timestamp = timerange, AccountCustomEntity = UserPrincipalName;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/azure/sentinel/datalake/kql-sample-queries
+// Daily sign-in trend per user/app (locations, IPs, logon count)
+// ============================================================================
+SigninLogs
+| where TimeGenerated > ago(1d)
+| extend locationString = strcat(tostring(LocationDetails["countryOrRegion"]), "/",
+                                 tostring(LocationDetails["state"]), "/",
+                                 tostring(LocationDetails["city"]), ";")
+| extend Day = format_datetime(TimeGenerated, "yyyy-MM-dd")
+| summarize LocationList = make_set(locationString),
+            LocationCount = dcount(locationString),
+            DistinctSourceIp = dcount(IPAddress),
+            LogonCount = count()
+    by Day, AppDisplayName, UserPrincipalName;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/azure/sentinel/datalake/kql-sample-queries
+// Privilege-escalation / rare audit-to-signin correlation
+// (90–180 day look-back for "Add service principal" / secret changes)
+// ============================================================================
+AuditLogs
+| where TimeGenerated between (ago(180d) .. ago(90d))
+| where OperationName has_any ("Add service principal", "Certificates and secrets management")
+| extend Actor = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)
+| project AuditTime = TimeGenerated, Actor, OperationName
+| join kind=inner (
+    SigninLogs
+    | where ResultType == 0 and TimeGenerated between (ago(180d) .. ago(90d))
+    | project LoginTime = TimeGenerated, Identity, IPAddress, AppDisplayName
+) on $left.Actor == $right.Identity
+| project AuditTime, Actor, OperationName, LoginTime, IPAddress, AppDisplayName
+| sort by Actor asc, LoginTime desc;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-track-linkable-identifiers
+// Linkable identifiers — join Microsoft Graph activity with all sign-in streams
+// ============================================================================
+MicrosoftGraphActivityLogs
+| where TimeGenerated > ago(4d) and UserId == '4624cd8c-6c94-4593-b0d8-a4983d797ccb'
+| join kind=leftouter (
+    union SigninLogs,
+          AADNonInteractiveUserSignInLogs,
+          AADServicePrincipalSignInLogs,
+          AADManagedIdentitySignInLogs,
+          ADFSSignInLogs
+    | where TimeGenerated > ago(4d)
+) on $left.SignInActivityId == $right.UniqueTokenIdentifier;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/architecture/id-protection-guide-analyze
+// ID Protection — recent risky user events (top 100)
+// ============================================================================
+AADUserRiskEvents
+| where DetectedDateTime > ago(30d)
+| where RiskState == "atRisk"
+| take 100
+| summarize count() by UserDisplayName;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-server-migration-utility
+// Audit — MFA Management activity in the last 7 days
+// ============================================================================
+AuditLogs
+| where ActivityDateTime > ago(7d)
+| extend InitiatedBy = tostring(InitiatedBy["app"]["displayName"])
+| where InitiatedBy == "Microsoft Entra multifactor authentication Management"
+| extend UserObjectId = tostring(TargetResources[0]["id"])
+| extend Upn = tostring(TargetResources[0]["userPrincipalName"])
+| extend ModifiedProperties = TargetResources[0]["modifiedProperties"]
+| project ActivityDateTime, InitiatedBy, UserObjectId, Upn, ModifiedProperties
+| order by ActivityDateTime asc;
+
+// ============================================================================
+// MS Learn: https://learn.microsoft.com/entra/identity/conditional-access/concept-token-protection
+// Token Protection — per-user enforcement result (allow vs block)
+// ============================================================================
+AADNonInteractiveUserSignInLogs
+| where TimeGenerated > ago(7d)
+| project Id, ConditionalAccessPolicies, UserPrincipalName, AppDisplayName, ResourceDisplayName
+| where ConditionalAccessPolicies != "[]"
+| where ResourceDisplayName in ("Office 365 Exchange Online", "Office 365 SharePoint Online",
+                                "Azure Virtual Desktop", "Windows 365", "Windows Cloud Login")
+| mv-expand todynamic(ConditionalAccessPolicies)
+| where ConditionalAccessPolicies["enforcedSessionControls"] contains '["Binding"]'
+    or ConditionalAccessPolicies["enforcedSessionControls"] contains '["SignInTokenProtection"]'
+| where ConditionalAccessPolicies.result != "reportOnlyNotApplied"
+    and ConditionalAccessPolicies.result != "notApplied"
+| extend SessionNotSatisfyResult = ConditionalAccessPolicies.sessionControlsNotSatisfied
+| extend Result = case(SessionNotSatisfyResult contains 'SignInTokenProtection'
+                       or SessionNotSatisfyResult contains 'Binding', 'Block', 'Allow')
+| summarize by Id, UserPrincipalName, AppDisplayName, ResourceDisplayName, Result
+| summarize Requests = count(),
+            Block = countif(Result == "Block"),
+            Allow = countif(Result == "Allow")
+    by UserPrincipalName, AppDisplayName, ResourceDisplayName
+| extend PctAllowed = round(100.0 * Allow / (Allow + Block), 2)
+| sort by UserPrincipalName asc;
