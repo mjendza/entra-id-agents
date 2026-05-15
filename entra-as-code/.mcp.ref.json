@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+     "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+     },
+     "Lokka-Microsoft": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@merill/lokka"],
+      "env": {
+        "CLIENT_ID": "",
+        "TENANT_ID": "",
+        "CLIENT_SECRET": ""
+      }
+    }
+  }
+}
