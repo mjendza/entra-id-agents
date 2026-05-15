@@ -68,10 +68,40 @@ If `workspace` is missing or has `<...>` placeholders, refuse with:
 
 ## Execution
 
-Call `mcp__Azure-Mcp__monitor` with `workspace.subscriptionId`,
-`workspace.resourceGroup`, `workspace.workspaceId`, and the final KQL.
+`mcp__Azure-Mcp__monitor` is a **hierarchical command router**. The
+top-level call takes only `intent` (required), `command`, `parameters`,
+and optional `learn`. Workspace IDs and KQL belong inside `parameters`,
+**not** at the top level.
 
-On error, surface the Azure-Mcp error verbatim.
+### Step 1: discover the sub-command (first call only)
+
+```
+mcp__Azure-Mcp__monitor({
+  intent: "Discover the Log Analytics workspace query sub-command",
+  learn: true
+})
+```
+
+Note the sub-command name and its parameter names; reuse for the turn.
+
+### Step 2: issue the real query
+
+```
+mcp__Azure-Mcp__monitor({
+  intent: "Query AuditLogs for role changes last 7d",
+  command: "workspace log query",
+  parameters: {
+    subscription: workspace.subscriptionId,
+    "resource-group": workspace.resourceGroup,
+    workspace: workspace.workspaceId,
+    query: "<your adapted KQL string here>"
+  }
+})
+```
+
+On error, surface the Azure-Mcp error verbatim. If the error indicates
+an unknown command or missing parameter, re-run `learn: true` to
+correct the shape.
 
 ## Output format
 

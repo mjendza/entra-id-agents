@@ -76,16 +76,61 @@ placeholder, refuse with:
 
 ## Execution
 
-Call `mcp__Azure-Mcp__monitor` with:
+`mcp__Azure-Mcp__monitor` is a **hierarchical command router**, not a
+flat query tool. The top-level call takes only these fields:
 
-- `subscriptionId`: `workspace.subscriptionId`
-- `resourceGroup`: `workspace.resourceGroup`
-- `workspaceId`: `workspace.workspaceId`
-- the adapted KQL string.
+- `intent` (required, string): a one-line description of what you're
+  doing, e.g. `"Query SigninLogs for failed sign-ins last 7d"`.
+- `command` (string): the sub-command path that performs the action,
+  e.g. `"workspace log query"` (exact name discovered at runtime — see
+  below).
+- `parameters` (object): the actual args for the sub-command
+  (subscription, resource-group, workspace, query, ...).
+- `learn` (bool, optional): set `true` to ask the router to list its
+  sub-commands and their parameter shapes.
+
+**Do NOT** put `subscriptionId`, `workspaceId`, or the KQL at the top
+level — they belong inside `parameters`.
+
+### Step 1: discover the sub-command (first call only)
+
+On your first use this session, issue a learn call to get the
+authoritative sub-command and parameter names — guessing is brittle:
+
+```
+mcp__Azure-Mcp__monitor({
+  intent: "Discover the Log Analytics workspace query sub-command",
+  learn: true
+})
+```
+
+Read the response, identify the sub-command that runs a KQL query
+against a Log Analytics workspace, note its required parameter names,
+and reuse them for the rest of the turn (do not re-learn).
+
+### Step 2: issue the real query
+
+Worked example (substitute the discovered `command` and parameter
+names; the names below are the common Azure MCP convention):
+
+```
+mcp__Azure-Mcp__monitor({
+  intent: "Query SigninLogs for failed sign-ins last 7d",
+  command: "workspace log query",
+  parameters: {
+    subscription: workspace.subscriptionId,
+    "resource-group": workspace.resourceGroup,
+    workspace: workspace.workspaceId,
+    query: "<your adapted KQL string here>"
+  }
+})
+```
 
 On error, surface the Azure-Mcp error verbatim — do not summarize or
 swallow it. The user needs the raw error to debug (missing role, invalid
-workspace, table not present in this workspace, etc.).
+workspace, table not present in this workspace, wrong sub-command name,
+etc.). If the error indicates an unknown command or missing parameter,
+re-run `learn: true` to correct the shape.
 
 ## Output format
 

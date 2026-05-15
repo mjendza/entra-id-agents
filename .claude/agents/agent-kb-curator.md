@@ -31,7 +31,8 @@ You never run KQL, never call Azure MCP, and never edit anything.
      `SigninLogs-ThreatHunting.kql`, `AADNonInteractiveUserSignInLogs-ThreatHunting.kql`,
      `ADFSSignInLogs-ThreatHunting.kql`).
    - Numbered `*.yaml` detection rules with embedded `query:` blocks.
-4. `kb/AzureCustomDetections/**` — analytic and hunting `.kql` rules.
+4. `kb/Dalonso-Security-Repo/Use Cases Threat Hunting/AzureCustomDetections/**`
+   — analytic and hunting `.kql` rules (nested under the Dalonso repo).
 
 ## Domain tags
 
@@ -43,8 +44,9 @@ Tag each candidate snippet with **one** domain so the coordinator can route:
 - `audit` — uses `AuditLogs` or `AADProvisioningLogs`.
 - `risk` — uses `RiskyUsers`, `AADUserRiskEvents`,
   `AADServicePrincipalRiskEvents`, or `RiskyServicePrincipals`.
-- `threat-hunt` — anything from `kb/Dalonso-Security-Repo/` or
-  `kb/AzureCustomDetections/`, regardless of underlying table.
+- `threat-hunt` — anything from `kb/Dalonso-Security-Repo/` (including
+  the nested `AzureCustomDetections/` folder), regardless of underlying
+  table.
 
 If a snippet `union`s tables across domains, tag it with the **primary**
 domain (the first/largest table) and note the cross-table behavior in
