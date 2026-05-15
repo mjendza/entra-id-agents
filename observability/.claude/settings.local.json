@@ -1,0 +1,13 @@
+{
+  "enabledMcpjsonServers": [
+    "Azure-Mcp"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__Azure-Mcp__monitor",
+      "mcp__Azure-Mcp__subscription_list",
+      "mcp__Azure-Mcp__group_list",
+      "mcp__Azure-Mcp__group_resource_list"
+    ]
+  }
+}

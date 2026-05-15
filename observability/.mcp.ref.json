@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+     "Lokka-Microsoft": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@merill/lokka"],
+      "env": {
+        "CLIENT_ID": "",
+        "TENANT_ID": "",
+        "CLIENT_SECRET": ""
+      }
+    },
+    "Azure-Mcp": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@azure/mcp@latest", "server", "start"],
+      "env": {
+        "AZURE_CLIENT_ID": "",
+        "AZURE_TENANT_ID": "",
+        "AZURE_CLIENT_SECRET": "",
+        "AZURE_SUBSCRIPTION_ID": ""
+      }
+    }
+  }
+}
