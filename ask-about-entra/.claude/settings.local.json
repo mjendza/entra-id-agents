@@ -1,0 +1,14 @@
+{
+  "enabledMcpjsonServers": [
+    "microsoft-learn",
+    "entra-news-mcp"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__microsoft-learn__microsoft_docs_search",
+      "mcp__microsoft-learn__microsoft_docs_fetch",
+      "mcp__microsoft-learn__microsoft_code_sample_search",
+      "Write(solutions/**)"
+    ]
+  }
+}
