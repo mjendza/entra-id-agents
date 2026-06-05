@@ -39,6 +39,43 @@ User: /entra-solution <topic>
                   short chat summary with links to each file.
 ```
 
+### Closed-loop variant
+
+`/entra-solution-loop` swaps the coordinator for
+`agent-improvement-coordinator`, which runs the same baseline pipeline
+above and then enters a quality-inspection loop driven by
+`agent-quality-inspector`:
+
+```
+User: /entra-solution-loop <topic>
+        |
+        v
+agent-improvement-coordinator
+        |
+        +-- baseline: librarian -> authors (parallel) -> agent-doc-reviewer
+        |             (excerpts are cached and reused across the loop;
+        |              librarian is NEVER called more than once)
+        |
+        +-- loop (up to 3 iterations):
+              agent-quality-inspector  (Sonnet, holistic)
+                  -> per-draft verdict {pass | improve}
+                  -> hard_issues (must fix)
+                  -> improvements (additive enhancements)
+              -> re-dispatch flagged authors via the existing
+                 `revision_notes:` channel, with HARD: / IMPROVE: prefixes
+              exits on: all-pass | max-iterations | stagnation
+
+        v
+   Writes the usual artifacts plus solutions/<slug>/improvement-log.md
+```
+
+The inspector checks things the strict citation gate cannot: coverage
+gaps against unused excerpts, cross-artifact consistency (param names,
+policy filenames, CA policy names), deprecation propagation into every
+draft, and example-variant completeness in the runbook. Use this when
+the bundle is high-stakes; use plain `/entra-solution` when you want
+the fast single-shot path.
+
 ## Agents
 
 - **`agent-solution-coordinator`** — central orchestrator. Derives the
@@ -64,11 +101,27 @@ User: /entra-solution <topic>
 - **`agent-doc-reviewer`** — read-only fact-checker. Flags drafts that
   contain claims, commands, or schemas not supported by the librarian's
   excerpts. Coordinator allows one revision round per flagged draft.
+- **`agent-improvement-coordinator`** — closed-loop peer of
+  `agent-solution-coordinator`. Drives the `/entra-solution-loop`
+  pipeline: same baseline draft + doc-review pass, then up to three
+  inspector-driven revision rounds with cached excerpts. Writes an
+  `improvement-log.md` alongside the usual artifacts.
+- **`agent-quality-inspector`** — read-only quality inspector used by
+  the closed-loop variant. Goes beyond citation checking: coverage
+  gaps, cross-artifact consistency, deprecation propagation, and
+  example-variant completeness. Returns per-draft verdicts of `pass`
+  or `improve` plus `hard_issues` / `improvements` lists, with a
+  stagnation flag the coordinator uses for early exit.
 
 ## Slash commands
 
 - **`/entra-solution <topic>`** — full bundle: design + runbook + IaC
   + policy.
+- **`/entra-solution-loop <topic>`** — closed-loop full bundle. Same
+  pipeline as `/entra-solution`, then up to three quality-inspector
+  iterations (re-dispatching flagged authors with hard_issues +
+  improvements) until every draft passes or the loop stagnates. Adds
+  an `improvement-log.md` to the output folder.
 - **`/entra-design <topic>`** — design doc only.
 - **`/entra-runbook <topic>`** — runbook only.
 - **`/entra-iac <topic>`** — IaC only (Bicep default; append
@@ -107,6 +160,9 @@ solutions/
       role-*.json       # custom-role definitions
       ...               # other policy artifacts as needed
     sources.md          # every MS Learn / Entra-news URL cited
+    improvement-log.md  # only when built via /entra-solution-loop:
+                        # one section per inspector iteration with the
+                        # verdict per draft and the actions taken
 ```
 
 `<topic-slug>` is derived from the user's topic (kebab-case,
