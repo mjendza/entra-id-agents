@@ -22,8 +22,10 @@ User: /entra-solution <topic>
                        |
                        +-- 1. agent-learn-librarian
                        |       MCP: microsoft-learn (search/fetch/code-samples)
-                       |            entra-news-mcp (recent changes + deprecations)
-                       |       returns JSON excerpts tagged by deliverable
+                       |            entra-news-mcp (recent changes/deprecations
+                       |                            + community tools)
+                       |       returns JSON: excerpts (by deliverable),
+                       |            recent_changes, community_tools
                        |
                        +-- 2. authors in parallel (only the requested ones):
                        |     - agent-design-author   -> design.md
@@ -82,10 +84,12 @@ the fast single-shot path.
   topic slug, calls the librarian, dispatches authors in parallel,
   runs the reviewer, writes the artifacts.
 - **`agent-learn-librarian`** — read-only research librarian. Queries
-  Microsoft Learn (search → fetch → code samples) and the Entra-news
-  MCP. Returns a structured JSON block of excerpts tagged by
-  deliverable type, plus a `recent_changes` list with deprecations
-  flagged.
+  Microsoft Learn (search → fetch → code samples) for authoritative docs
+  and the Entra-news MCP (`search_entra_news` + `find_tool_mentions`) for
+  community signal and recency. Returns a structured JSON block of
+  excerpts tagged by deliverable type, plus a `recent_changes` list with
+  deprecations flagged and a `community_tools` list of highlighted
+  community tools/projects.
 - **`agent-design-author`** — writes the architecture / design doc
   (Markdown). Content-only; returns a string.
 - **`agent-runbook-author`** — writes the implementation runbook
@@ -137,10 +141,21 @@ The `.mcp.json` at this directory wires up two MCPs:
 - `microsoft-learn` (HTTP MCP at `https://learn.microsoft.com/api/mcp`)
 - `entra-news-mcp` (npx-launched)
 
-Both are enabled in `.claude/settings.local.json`, and the Microsoft
-Learn read tools (`microsoft_docs_search`, `microsoft_docs_fetch`,
-`microsoft_code_sample_search`) are pre-allowed so they don't prompt on
-every call. Writes are pre-allowed only under `solutions/**`.
+Both are enabled in `.claude/settings.local.json`, and their read tools
+are pre-allowed so they don't prompt on every call: the Microsoft Learn
+tools (`microsoft_docs_search`, `microsoft_docs_fetch`,
+`microsoft_code_sample_search`) and the Entra-news tools
+(`search_entra_news`, `find_tool_mentions`). Writes are pre-allowed only
+under `solutions/**`.
+
+`microsoft-learn` is the **authoritative** source (official docs,
+schemas, code samples); `entra-news-mcp` is the **community + recency**
+source (recent changes, deprecation signals, and community tools from
+the weekly Entra News newsletter archive). Only `agent-learn-librarian`
+calls these MCPs — every other agent works off its curated excerpts. On
+first launch `entra-news-mcp` downloads a small SQLite archive; keyword
+search works out of the box (semantic search additionally needs an
+OpenAI key).
 
 ### Output layout
 
@@ -149,7 +164,7 @@ Each slash command writes a folder under `solutions/`:
 ```
 solutions/
   <topic-slug>/
-    README.md           # overview + recent-changes section + links
+    README.md           # overview + recent-changes + community-tools + links
     design.md           # if `design` was requested
     runbook.md          # if `runbook` was requested
     iac/
@@ -177,6 +192,9 @@ appends `-v2`, `-v3`, etc. — existing solutions are never overwritten.
 - Every generated document includes a *Recent changes / deprecations*
   section sourced from the Entra-news MCP for the last 90 days, with
   deprecations called out explicitly.
+- When the Entra-news MCP surfaces relevant community tools/projects for
+  the topic, the solution README gains a *Community tools* section
+  linking each one.
 - If MS Learn / Entra-news return nothing usable for a topic, the
   coordinator stops before dispatching authors and asks the user to
   broaden the topic.
