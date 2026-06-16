@@ -78,14 +78,17 @@ deliverables: <comma-separated list>
 ```
 
 Expect a single fenced JSON block in the response with keys `excerpts`,
-`recent_changes`, `notes`. Parse it. If parsing fails, retry once with
-an explicit reminder to "return a single fenced JSON block exactly as
-specified". If it fails again, surface the librarian's response
-verbatim and stop.
+`recent_changes`, `community_tools`, `notes`. Parse it. If parsing fails,
+retry once with an explicit reminder to "return a single fenced JSON
+block exactly as specified". If it fails again, surface the librarian's
+response verbatim and stop.
 
 **Cache the parsed JSON in your working memory** under the name
 `librarian_output`. You will reuse this same JSON for every iteration —
 the librarian is NEVER called more than once per loop run.
+(`community_tools` holds Entra-news community tools/projects; it is not
+fed to authors — you surface it in the README at Step 6. It may be
+empty.)
 
 If the librarian returns `"excerpts": []` and `"recent_changes": []`,
 **stop** before dispatching authors. Tell the user:
@@ -251,14 +254,17 @@ Once the loop exits, `Write` each accepted draft:
 Also `Write` three coordinator-authored files:
 
 - `solutions/<slug>/sources.md` — bulleted list of every URL referenced
-  by the librarian (excerpts + recent_changes), in the order they
-  appeared. One bullet per URL: `- [title](url)`.
+  by the librarian (excerpts + recent_changes + community_tools), in the
+  order they appeared. One bullet per URL: `- [title](url)`.
 - `solutions/<slug>/README.md` — overview composed by you:
   - H1: the topic
   - One-paragraph summary (your own, drawn from author intros)
   - "Artifacts" bulleted list with relative links to each file written
   - "Recent changes / deprecations" section — copy from `recent_changes`
     (skip if empty)
+  - "Community tools" section — when `community_tools` is non-empty, one
+    bullet per tool: `- [name](url) — description`. Skip the section
+    entirely if `community_tools` is empty.
   - "Quality loop" line noting how many inspector iterations ran and
     whether the loop exited on `all-pass`, `max-iterations`, or
     `stagnation`.

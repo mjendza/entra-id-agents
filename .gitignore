@@ -1,4 +1,5 @@
-
-.mcp.json
-
+entra-as-code/.mcp.json
+observability/.mcp.json
 workspaces.json
+
+*/solutions/*

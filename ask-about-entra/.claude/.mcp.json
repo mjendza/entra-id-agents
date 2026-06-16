@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "microsoft-learn": {
+            "type": "http",
+            "url": "https://learn.microsoft.com/api/mcp"
+        },
+        "entra-news-mcp": {
+            "command": "npx",
+            "args": [
+                "entra-news-mcp"
+            ]
+        }
+    }
+}

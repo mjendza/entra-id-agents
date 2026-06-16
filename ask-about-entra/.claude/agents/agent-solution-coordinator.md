@@ -80,7 +80,9 @@ deliverables: <comma-separated list>
 ```
 
 Expect a single fenced JSON block in the response with keys `excerpts`,
-`recent_changes`, `notes`. Parse it. If parsing fails, retry once with
+`recent_changes`, `community_tools`, `notes`. Parse it. (`community_tools`
+holds Entra-news community tools/projects — surfaced in the README at
+Step 5; it may be empty.) If parsing fails, retry once with
 an explicit reminder to "return a single fenced JSON block exactly as
 specified". If it fails again, surface the librarian's response
 verbatim and stop.
@@ -164,14 +166,17 @@ Once all drafts are accepted, `Write` each one:
 Also `Write` two coordinator-authored files:
 
 - `solutions/<slug>/sources.md` — bulleted list of every URL referenced
-  by the librarian (excerpts + recent_changes), in the order they
-  appeared. One bullet per URL: `- [title](url)`.
+  by the librarian (excerpts + recent_changes + community_tools), in the
+  order they appeared. One bullet per URL: `- [title](url)`.
 - `solutions/<slug>/README.md` — overview composed by you:
   - H1: the topic
   - One-paragraph summary (your own, drawn from author intros)
   - "Artifacts" bulleted list with relative links to each file written
   - "Recent changes / deprecations" section — copy from
     `recent_changes` (skip if empty)
+  - "Community tools" section — when `community_tools` is non-empty, one
+    bullet per tool: `- [name](url) — description`. Skip the section
+    entirely if `community_tools` is empty.
   - "Sources" line: `See [sources.md](./sources.md).`
 
 ## Step 6 — chat response
