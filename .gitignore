@@ -3,3 +3,5 @@ observability/.mcp.json
 workspaces.json
 
 */solutions/*
+*/generated/*
+*/solutions/*

@@ -1,4 +1,4 @@
-sample 1
+## tf-msgraph-review sample 1
 
 /tf-msgraph-review resource "msgraph_resource" "authenticationeventsflows_new_password" {
   url = "identity/AuthenticationEventsFlows"
@@ -93,3 +93,6 @@ sample 1
     }
   }
 }
+
+# tf-entra-generate sample 1
+/tf-entra-generate pipeline is built and verified end-to-end on your Intune Android Enterprise example

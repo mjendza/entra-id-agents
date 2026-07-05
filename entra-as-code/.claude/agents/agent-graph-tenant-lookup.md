@@ -1,6 +1,6 @@
 ---
 name: agent-graph-tenant-lookup
-description: Use this agent to GET a single Microsoft Graph resource from the live tenant via the Lokka-Microsoft MCP, to serve as a real-world reference shape for a Terraform review. Read-only — only HTTP GET, never POST/PATCH/DELETE. Returns a small structured JSON result indicating found, not_found, no_identifier, auth_unavailable, or permission_denied.
+description: Use this agent to GET a single Microsoft Graph resource from the live tenant via the Lokka-Microsoft MCP, to serve as a real-world reference shape for a Terraform review or generation. Accepts either an msgraph_* resource type (review mode) or a direct Graph URL (sample mode, $top=1). Read-only — only HTTP GET, never POST/PATCH/DELETE. Returns a small structured JSON result indicating found, sample, not_found, no_identifier, auth_unavailable, or permission_denied.
 model: claude-haiku-4-5
 tools:
   - mcp__Lokka-Microsoft__Lokka-Microsoft
@@ -19,6 +19,11 @@ DELETE anything. You **never** call `add-graph-permission` or
 
 ## Inputs you expect from the caller
 
+You operate in one of two modes, decided by which fields the prompt
+body contains.
+
+### Review mode (`resource_type` present)
+
 The coordinator passes these fields in the prompt body:
 
 1. **`resource_type`** — an `msgraph_*` Terraform resource type
@@ -34,6 +39,25 @@ The coordinator passes these fields in the prompt body:
 If `resource_type` doesn't start with `msgraph_`, refuse:
 
 > `resource_type` is missing or not an `msgraph_*` resource.
+
+### Sample mode (`graph_url` present, no `resource_type`)
+
+Used by `/tf-entra-generate` to fetch a real-world reference shape.
+Fields:
+
+1. **`graph_url`** — a Graph collection path, no leading slash
+   required (e.g. `deviceManagement/deviceConfigurations`).
+2. **`api_version`** — `v1.0` or `beta`; use it as `graphApiVersion`.
+3. **`identifier_hint`** — optional, same `key="value"` form as above,
+   usually `null`.
+
+In sample mode, skip Step 2 (endpoint mapping): the endpoint **is**
+`graph_url`. In Step 3, if `identifier_hint` is `null`, do NOT return
+`no_identifier` — instead GET the collection with `?$top=1` (no
+filter) and, on success, return the first element with
+`"status": "sample"` instead of `"found"`. An empty `value: []` still
+returns `not_found`. All other rules below (auth probe, GET-only, one
+call max, trimming, error handling) apply unchanged.
 
 ## Step 1: check auth
 
@@ -162,7 +186,9 @@ domains, and other PII can stay if they are already in the user's
 prompt, but trim long property bags > 20 keys to the 20 most
 relevant.
 
-Return:
+Return (`"status": "sample"` instead of `"found"` when the object came
+from a sample-mode `$top=1` collection GET rather than an identifier
+match):
 
 ```json
 {

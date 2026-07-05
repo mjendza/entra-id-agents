@@ -1,6 +1,6 @@
 ---
 name: agent-tf-reviewer
-description: Read-only reviewer that compares a single Terraform msgraph_* resource block against (1) the Microsoft Graph REST schema and (2) the live tenant shape, producing structured Findings, a proposed unified diff, and References. Does not call any MCP. Does not edit files. The coordinator passes it the original block plus both fetcher outputs as text in the prompt body.
+description: Read-only reviewer that compares a single Terraform resource block (typed msgraph_*, generic msgraph_resource, or azuread_*) against (1) the Microsoft Graph REST schema and (2) the live tenant shape, producing structured Findings, a proposed unified diff, and References. Does not call any MCP. Does not edit files. The caller passes it the original block plus both fetcher outputs as text in the prompt body.
 model: claude-sonnet-4-6
 tools:
   - Read
@@ -32,7 +32,9 @@ Three fields, passed verbatim in the prompt body:
    `null` (lookup failed).
 3. **`tenant_shape`** — the JSON block from
    `agent-graph-tenant-lookup`, one of:
-   `{"status":"found", ...}`, `{"status":"not_found", ...}`,
+   `{"status":"found", ...}`, `{"status":"sample", ...}`
+   (treat `sample` exactly like `found` for structural checks),
+   `{"status":"not_found", ...}`,
    `{"status":"no_identifier", ...}`, `{"status":"auth_unavailable", ...}`,
    `{"status":"permission_denied", ...}`, `{"status":"error", ...}`,
    or `{"status":"refused", ...}`.
@@ -58,6 +60,35 @@ Treat nested blocks (`api { ... }`, `web { ... }`) as a single
 attribute name for required/unknown checks; their inner contents are
 **out of scope** for this reviewer unless the Graph REST `optional_typed`
 type signals a known nested object you can validate at the top level.
+
+## Resource families
+
+Determine the family from `resource_type` before applying the
+comparison rules:
+
+- **Generic `msgraph_resource`** (the shape the `Microsoft/msgraph`
+  provider actually ships). Provider-level arguments are exactly:
+  `url`, `api_version`, `body`, `response_export_values` — validate
+  the top level against that fixed surface, not against `tf_provider`
+  required/optional lists. The `body` map is passed to Graph
+  **verbatim**, so its keys are validated against
+  `graph_docs.graph_rest` (`required` ∪ `optional_typed`) **as-is, in
+  camelCase — never apply snake_case conversion inside `body`**. In
+  this family the naming rule (Rule 4) inverts inside `body`:
+  a snake_case body key is the `error` ("Graph expects camelCase
+  property names in body"), and the diff renames it to camelCase.
+  Keys starting with `@odata.` are always allowed. Rule 1
+  (required-field) checks `graph_rest.required` against the `body`
+  keys directly.
+- **Typed `msgraph_*`** (any other `msgraph_` prefix): rules 1–4 apply
+  exactly as written below.
+- **`azuread_*`** (HashiCorp azuread provider): snake_case arguments
+  as usual. Check rules 1–2 against `tf_provider` when present; when
+  `tf_provider` is `null`, do NOT flag attributes as unknown — emit
+  one `info` finding ("azuread provider doc unavailable — Graph-side
+  sanity check only") and limit yourself to rule 3 (tenant shape) and
+  rule 5.
+- Anything else: refuse with the standard scope message.
 
 ## Comparison rules
 
@@ -118,6 +149,10 @@ names; Graph REST uses **camelCase** property names. If the HCL
 contains a camelCase key that exists in the Graph schema, emit an
 `error` finding ("camelCase argument used; provider expects
 snake_case") and add a rename to the diff.
+
+**Scope:** this rule applies to *provider-level arguments only*. For
+the generic `msgraph_resource` family it inverts inside `body` — see
+"Resource families" above; never snake_case a `body` key.
 
 Conversion rule for the diff: insert `_` before each uppercase letter,
 lowercase the whole thing
