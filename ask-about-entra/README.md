@@ -116,6 +116,12 @@ the fast single-shot path.
   example-variant completeness. Returns per-draft verdicts of `pass`
   or `improve` plus `hard_issues` / `improvements` lists, with a
   stagnation flag the coordinator uses for early exit.
+- **`agent-entra-architect`** — read-only Identity Architect for the
+  lightweight `/simple-ask` path. Answers a single Entra ID question
+  directly, grounded in Microsoft Learn (authoritative docs) and Entra
+  News (recency + community tools), and returns a screen-ready summary
+  with documentation and article links. Chat-only; writes no files and
+  bypasses the coordinator/librarian pipeline.
 
 ## Slash commands
 
@@ -131,6 +137,10 @@ the fast single-shot path.
 - **`/entra-iac <topic>`** — IaC only (Bicep default; append
   `as terraform` to the topic for Terraform).
 - **`/entra-policy <topic>`** — policy templates only.
+- **`/simple-ask <question>`** — lightweight, chat-only Q&A. Answers a
+  single Entra ID question as an Identity Architect (summary + Microsoft
+  Learn and Entra News links) printed on screen. Writes no files and
+  bypasses the solution-builder pipeline.
 
 ## How to use
 
