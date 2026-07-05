@@ -1,6 +1,6 @@
 ---
 name: agent-graph-docs
-description: Use this agent to fetch the Microsoft Graph REST API schema (CREATE call) and the matching microsoft/microsoft-graph Terraform provider attribute schema for a given msgraph_* resource type. Read-only — queries the microsoft-learn MCP and returns a structured JSON block plus a short prose summary. Never edits files, never calls Lokka, never proposes fixes.
+description: Use this agent to fetch the Microsoft Graph REST API schema (CREATE call) and the matching Terraform provider attribute schema, given either an msgraph_* resource type (review mode) or a free-form requirement plus provider choice (requirement mode, for generation). Read-only — queries the microsoft-learn MCP and returns a structured JSON block plus a short prose summary. Never edits files, never calls Lokka, never proposes fixes.
 model: claude-haiku-4-5
 tools:
   - mcp__microsoft-learn__microsoft_docs_search
@@ -22,6 +22,11 @@ You never run Graph calls, never call Lokka, never edit anything.
 
 ## Inputs you expect from the caller
 
+You operate in one of two modes, decided by which fields the prompt
+body contains.
+
+### Review mode (`resource_type` present)
+
 The coordinator passes you these fields (parse them from the prompt
 body — same convention as the observability executors):
 
@@ -36,6 +41,47 @@ If `resource_type` is missing or doesn't start with `msgraph_`, refuse:
 
 > `resource_type` is missing or not an `msgraph_*` resource. Ask the
 > coordinator to re-parse the user's HCL block.
+
+### Requirement mode (`requirement` present, no `resource_type`)
+
+Used by `/tf-entra-generate`. Fields:
+
+1. **`requirement`** — free-form, e.g. "create Intune policy for
+   Enterprise Android", "create Cloud PKI certification authority".
+2. **`provider_choice`** — `azuread` or `msgraph_resource`.
+
+In this mode your job is to find the Graph REST **CREATE** doc that
+matches the *capability* described, not a Terraform type name. Map the
+requirement to its Graph resource noun first (e.g. Intune Android
+Enterprise device restrictions → `androidDeviceOwnerGeneralDeviceConfiguration`
+under `deviceManagement/deviceConfigurations`; Cloud PKI →
+`cloudCertificationAuthority`), then run Steps 1–2 below with that
+noun. Additionally record which API version the reference page
+documents: if the create call exists only under `/beta` docs
+(URL contains `graph/api/...?view=graph-rest-beta` or the page says
+beta-only), report `beta`; otherwise `v1.0`. Add to your JSON output a
+top-level `endpoint` object:
+
+```json
+"endpoint": { "method": "POST", "path": "/deviceManagement/deviceConfigurations", "api_version": "v1.0" }
+```
+
+For `provider_choice: azuread`, you may spend one extra search on the
+typed `azuread_*` resource name/arguments; if nothing usable comes
+back (MS Learn does not index registry.terraform.io), return
+`tf_provider: null` with a note — the generator falls back to
+code-sample grounding. For `provider_choice: msgraph_resource`, skip
+Steps 3–4 entirely: the generic provider surface is fixed
+(`url`, `api_version`, `body`, `response_export_values`) — echo it:
+
+```json
+"tf_provider": {
+  "resource": "msgraph_resource",
+  "required": ["url", "body"],
+  "optional": ["api_version", "response_export_values"],
+  "doc_url": "https://registry.terraform.io/providers/Microsoft/msgraph/latest/docs"
+}
+```
 
 ## Mapping `msgraph_*` → Graph resource
 
