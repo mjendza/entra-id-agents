@@ -178,7 +178,12 @@ Otherwise the diff removes the line and the finding explains why.
 
 ### 3. Type/shape check against live tenant (`warning`)
 
-Only if `tenant_shape.status == "found"`:
+Only if `tenant_shape.status` is `"found"` **or** `"sample"` (a
+`$top=1` collection read is just as valid for structural comparison —
+`/tf-entra-generate` produces `sample`, so gating on `found` alone
+would silently skip this rule on every generation run). For any other
+status, including `auth_unavailable`, skip this rule and report it via
+Rule 6 instead:
 
 - For each attribute present in both `original_block` and
   `tenant_shape.shape` (after camelCase ↔ snake_case mapping), check

@@ -52,12 +52,43 @@ In **one assistant message**, issue exactly two `Agent` calls:
   If you cannot guess a path, skip this call and treat the tenant
   shape as `{"status": "no_identifier"}`.
 
-The tenant lookup is best-effort: `auth_unavailable`, `not_found`, or
-`permission_denied` results are fine — proceed with docs only. If the
-lookup agent cannot be spawned at all (e.g. its MCP server isn't
-configured, so its tool list resolves to nothing), treat that as
-`{"status":"auth_unavailable","detail":"<the error>"}` and continue —
-do not retry it and do not try to substitute another agent.
+### The tenant lookup is optional — never let it block generation
+
+It is the only step that needs the `Lokka-Microsoft` MCP server, and
+that server is **often not configured**. Every unhappy outcome collapses
+to the same handling: record an `auth_unavailable` tenant shape and
+continue on docs-only grounding.
+
+Treat all of these identically:
+
+- `auth_unavailable`, `not_found`, `permission_denied`, `no_identifier`,
+  or `error` in the returned JSON.
+- **The agent cannot be spawned at all** — dispatch fails with "would be
+  spawned with zero tools", an unrecognized/empty tool list, or an
+  unavailable subagent type. This happens whenever Lokka is absent.
+
+In every case, synthesize the shape yourself and move on:
+
+```json
+{ "status": "auth_unavailable", "detail": "<verbatim error, or 'Lokka-Microsoft MCP server not configured'>" }
+```
+
+Then:
+
+- **Do not retry** the dispatch or vary the prompt to get it to spawn.
+- **Do not substitute** another agent, and do not try the Graph GET
+  yourself by another route — a fabricated tenant shape is worse than
+  none, because the reviewer treats `shape` as ground truth for
+  structural checks.
+- **Skip it proactively.** If you already know Lokka isn't configured
+  (a prior dispatch this session failed, or the tool list shows no
+  `mcp__Lokka-Microsoft__*` tools), don't dispatch it at all — write the
+  `auth_unavailable` shape straight to `tenant_shape.json` in Step 2a
+  and issue only the `agent-graph-docs` call. A skipped dispatch is
+  strictly cheaper than a failed one.
+- **Say so once** in Step 6: note that the live-tenant structural
+  cross-check was skipped and the output is docs-grounded only. Don't
+  present it as an error — in a tenant-less setup it is the normal path.
 
 ## Step 2a: stage the grounding to disk (do this once)
 
