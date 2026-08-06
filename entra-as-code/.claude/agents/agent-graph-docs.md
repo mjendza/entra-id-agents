@@ -50,21 +50,57 @@ Used by `/tf-entra-generate`. Fields:
    Enterprise Android", "create Cloud PKI certification authority".
 2. **`provider_choice`** — `azuread` or `msgraph_resource`.
 
-In this mode your job is to find the Graph REST **CREATE** doc that
-matches the *capability* described, not a Terraform type name. Map the
-requirement to its Graph resource noun first (e.g. Intune Android
-Enterprise device restrictions → `androidDeviceOwnerGeneralDeviceConfiguration`
-under `deviceManagement/deviceConfigurations`; Cloud PKI →
-`cloudCertificationAuthority`), then run Steps 1–2 below with that
-noun. Additionally record which API version the reference page
-documents: if the create call exists only under `/beta` docs
-(URL contains `graph/api/...?view=graph-rest-beta` or the page says
-beta-only), report `beta`; otherwise `v1.0`. Add to your JSON output a
-top-level `endpoint` object:
+In this mode your job is to find the Graph REST doc(s) that match the
+*capability* described, not a Terraform type name. Map the requirement
+to its Graph resource noun first (e.g. Intune Android Enterprise device
+restrictions → `androidDeviceOwnerGeneralDeviceConfiguration` under
+`deviceManagement/deviceConfigurations`; Cloud PKI →
+`cloudCertificationAuthority`), then run Steps 1–2 below with that noun.
+
+#### A requirement may need several endpoints
+
+Do not assume one requirement means one Graph call. "Passkeys as the
+only method, compliant devices only, with a TAP backup" needs an
+authentication strength policy **plus** per-method configurations
+**plus** conditional access policies — four or more distinct endpoints.
+Enumerate them before you start fetching, and emit a top-level
+`endpoints` **array** with one entry per call:
 
 ```json
-"endpoint": { "method": "POST", "path": "/deviceManagement/deviceConfigurations", "api_version": "v1.0" }
+"endpoints": [
+  { "resource": "conditionalAccessPolicy", "method": "POST",
+    "path": "/identity/conditionalAccess/policies",
+    "api_version": "v1.0", "is_beta_only": false,
+    "doc_url": "https://learn.microsoft.com/graph/api/conditionalaccessroot-post-policies?view=graph-rest-1.0" },
+  { "resource": "hardwareOathAuthenticationMethodConfiguration", "method": "PATCH",
+    "path": "/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/hardwareOath",
+    "api_version": "beta", "is_beta_only": true,
+    "doc_url": "https://learn.microsoft.com/graph/api/hardwareoathauthenticationmethodconfiguration-update?view=graph-rest-beta" }
+]
 ```
+
+**`api_version` and `is_beta_only` are per-endpoint and never
+inherited.** Determine each independently: if that resource's reference
+page exists only under `?view=graph-rest-beta`, set
+`"api_version": "beta"` and `"is_beta_only": true` for **that entry
+only**. Sibling endpoints under one parent collection frequently differ
+— under `authenticationMethodConfigurations`, `fido2` and `sms` are v1.0
+while `hardwareOath` is beta-only. Never emit a single tenant-wide or
+family-wide version claim, and never flatten these into one
+`api_versions` summary map: a uniform version asserted across siblings
+is a mis-extraction that propagates a 404 all the way to `apply`.
+
+**Update-only endpoints.** When a resource is a PATCH-only singleton
+(fixed id in the path, no POST-create, no DELETE), record
+`"method": "PATCH"` and add `"update_only": true`. The generator picks
+`msgraph_update_resource` instead of `msgraph_resource` off this flag,
+and getting it wrong fails at apply.
+
+Budget note: with several endpoints you will not fetch every page
+within your call cap. Cover the ones the requirement centres on, mark
+the rest with `"doc_url"` from search results and
+`"verified": false`, and say in `notes` which entries were not fetched
+so the reviewer knows where to spend its own budget.
 
 For `provider_choice: azuread`, you may spend one extra search on the
 typed `azuread_*` resource name/arguments; if nothing usable comes
@@ -251,10 +287,25 @@ up but empty":
 - **No fabrication.** If a doc page returns nothing, say so in
   `notes` and use `null` for the missing side. Never invent property
   names or types from training data.
-- **Cap calls.** At most 4 MCP calls total per invocation
-  (1 search + 1 fetch for each side, optionally 1 code-sample fallback).
-  If you've used 4 and still don't have what you need, return what you
-  have and explain in `notes`.
+- **Cap calls — hard ceiling.** At most **6** MCP calls per invocation
+  (single-endpoint requirements should still finish in ~4: 1 search +
+  1 fetch per side, optionally 1 code-sample fallback; multi-endpoint
+  requirements get the extra 2 for additional endpoint pages). This is
+  a ceiling, not a target. When you hit it, **stop** and return what
+  you have with the gaps named in `notes` — an honest gap costs the
+  pipeline almost nothing, because the reviewer re-verifies against the
+  live pages anyway. Never keep searching for a page that isn't
+  surfacing.
 - **No secrets in output.** Don't echo anything from `.mcp.json`.
-- **Trim.** The reviewer pays for every token in your output. Keep
-  `optional_typed` and `optional` lists tight.
+- **Trim — you are the input to two more agents.** Both the generator
+  and the reviewer pay for every token you emit, on every dispatch and
+  every revision round. Keep it tight:
+  - Keep `optional_typed` and `optional` lists to the documented cap.
+  - **Never** emit an `implementation_summary`, `key_structure`,
+    per-step walkthrough, or suggested-Terraform key. Those restate
+    `endpoints` + `graph_rest` in prose and can double your output for
+    zero added grounding. Structure is the generator's job.
+  - Do not repeat an `example_request_body` outside `graph_rest`.
+  - The prose summary after the JSON block is **at most two
+    sentences**, and only for gaps a reader can't see in the JSON.
+    Never re-narrate the schema you just emitted.
