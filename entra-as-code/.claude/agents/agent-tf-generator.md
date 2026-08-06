@@ -128,6 +128,28 @@ terraform {
 - Declare every tenant-specific value as a `variable` block with a
   `description` — **never hardcode** GUIDs, tenant IDs, secrets, or
   UPNs.
+- **Security baseline (always applies):**
+  - Any variable carrying a secret, password, token, certificate, or
+    key material gets `sensitive = true`. Never expose such a value
+    through an `output` block; if an output is unavoidable, mark it
+    `sensitive = true` too.
+  - When the requirement leaves a security-relevant choice open
+    (sign-in audience, scope, assignment breadth, permission grant),
+    pick the **most restrictive documented option** and note the
+    choice with a trailing comment (e.g.
+    `# least-privilege default; widen deliberately`).
+  - Never emit a wildcard/all-tenant grant (e.g. admin-consented
+    broad permissions, `AzureADandPersonalMicrosoftAccount`) unless
+    the requirement explicitly asks for it.
+- **Operations baseline (always applies):**
+  - Provider version pinned (already required above) and
+    `required_version` for Terraform (`>= 1.5`).
+  - The README must warn that Terraform **state contains the created
+    object's properties** (and any sensitive variable values) and
+    recommend a remote, access-controlled backend.
+  - The README must state the exact least-privilege Graph permission
+    or admin role for the CREATE call, cited from `graph_docs` — not
+    a broader role that merely also works.
 - End every non-trivial resource block or property group with a
   trailing `# Source: <url>` comment pointing at the doc that grounds
   it.
@@ -138,6 +160,31 @@ terraform {
   not a rewrite**. Apply each item in `revision_notes` with the
   minimal necessary change and keep every untouched line verbatim from
   `prior_draft`.
+
+## Conditional access policies — security rules
+
+These apply whenever the requirement or resource is a conditional
+access policy (`azuread_conditional_access_policy`, or
+`msgraph_resource` with `url` under
+`identity/conditionalAccess/policies`):
+
+- **Report-only by default.** Set `state` to
+  `enabledForReportingButNotEnforced` (Graph) /
+  `"enabledForReportingButNotEnforced"` (azuread) unless the user
+  explicitly asked for an enforced policy. Add a trailing comment:
+  `# report-only: bake before enforcing`.
+- **Break-glass exclusions are mandatory.** Always emit an exclusion
+  for emergency-access accounts via a variable (e.g.
+  `var.break_glass_object_ids`, description explaining its purpose)
+  wired into the documented user-exclusion property. Never generate
+  a policy whose user scope is "All" with no exclusions.
+- **Never block everything.** Do not combine all-users + all-apps +
+  block without exclusions; if the requirement literally demands it,
+  keep the policy report-only and explain the lockout risk in the
+  README.
+- **Security summary is mandatory.** The README (second block) MUST
+  contain a `## Security summary` section (see the stub below) — the
+  caller surfaces it to the user verbatim.
 
 ## Apply-instructions stub
 
@@ -169,6 +216,18 @@ terraform apply
 ## Rollback
 
 `terraform destroy` removes the resource. <Plus any resource-specific caveat from the docs.>
+
+## State & permissions
+
+- Terraform state will contain this object's properties<and sensitive variable values, if any> — use a remote, access-controlled backend.
+- Least-privilege permission for create: <exact Graph permission / admin role from graph_docs>.
+
+## Security summary   <!-- REQUIRED for conditional access policies; include for other resources when security-relevant -->
+
+- **Scope**: <which users/groups/apps/conditions the policy targets, incl. exclusions>
+- **Enforcement**: <grant/session controls, and the `state` value — report-only vs enforced>
+- **Lockout risk**: <can this lock out admins? are break-glass exclusions present?>
+- **Rollout**: <recommended report-only bake period and how/when to switch to enforced>
 
 ## Sources
 

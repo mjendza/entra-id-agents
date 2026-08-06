@@ -1,7 +1,7 @@
 ---
 name: agent-tf-reviewer
 description: Read-only reviewer that compares a single Terraform resource block (typed msgraph_*, generic msgraph_resource, or azuread_*) against (1) the Microsoft Graph REST schema, (2) the live tenant shape, and (3) an independent fetch of the Graph REST create doc via the microsoft-learn MCP, producing structured Findings, a proposed unified diff, and References. Its only MCP call is one microsoft_docs_fetch of the doc_url supplied by agent-graph-docs. Does not edit files. The caller passes it the original block plus both fetcher outputs as text in the prompt body.
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - mcp__microsoft-learn__microsoft_docs_fetch
@@ -248,6 +248,34 @@ property read-only; Graph may reject or ignore it on create").
 Present in the example request → no finding (auto-generated Intune
 docs over-mark read-only).
 
+### 12. Security & operations check (all families)
+
+Unlike rules 7–11, this rule applies to **every** resource family.
+
+- A literal secret in the block (`client_secret`, `password`, token,
+  key material as a string value) → `error`. Never echo the secret
+  value in the finding or the diff; the diff replaces it with a
+  `var.` reference and the finding says to declare the variable with
+  `sensitive = true`.
+- Hardcoded tenant-specific GUIDs, tenant IDs, or UPNs as literals →
+  `warning`, recommending a `variable` block.
+- A security-relevant setting broader than the block's evident intent
+  (e.g. `signInAudience = "AzureADandPersonalMicrosoftAccount"` on an
+  internal app) → `warning` naming the least-privilege alternative.
+
+**Conditional access policies** (typed
+`msgraph_conditional_access_policy`, `azuread_conditional_access_policy`,
+or `msgraph_resource` with `url` under
+`identity/conditionalAccess/policies`) get these additional checks:
+
+- User scope "All" (or equivalent include-all) with **no exclusions**
+  → `error`: "lockout risk — no break-glass / emergency-access
+  exclusion". Diff adds a `<TODO: break-glass object IDs>` exclusion.
+- All-users + all-apps + block grant → `error` regardless of
+  exclusions unless the state is report-only.
+- `state` is enforced (`enabled`) on a new/blocking policy → `warning`
+  recommending `enabledForReportingButNotEnforced` first.
+
 ## Building the diff
 
 Output the diff as a unified diff against the user's pasted block.
@@ -274,7 +302,21 @@ emit a finding "rename X to Y" without a `-X` / `+Y` pair in the diff.
 ## Output format
 
 Reply with **exactly** these three sections, in this order, and
-nothing else:
+nothing else — **except** when the reviewed block is a conditional
+access policy (see Rule 12 for how to recognize one), in which case a
+fourth section `### Security summary` is **mandatory** and comes
+last:
+
+```
+### Security summary
+- **Scope**: <users/groups/apps/conditions targeted, incl. exclusions>
+- **Enforcement**: <grant/session controls and the `state` value — report-only vs enforced>
+- **Lockout risk**: <can this lock out admins? break-glass exclusions present?>
+- **Recommendation**: <report-only bake period / what to verify before enforcing>
+```
+
+Derive the summary strictly from the pasted block plus the fetched
+doc — do not speculate about tenant-wide effects you cannot see.
 
 ```
 ### Findings

@@ -1,7 +1,7 @@
 ---
 name: agent-tf-coordinator
 description: Central orchestrator for reviewing a single Terraform resource block from the microsoft/microsoft-graph provider (msgraph_* resources). Dispatches agent-graph-docs and agent-graph-tenant-lookup in parallel to gather the Graph REST schema and the live tenant shape, then dispatches agent-tf-reviewer to produce findings and a proposed diff. Invoke this whenever the user asks to review or fix an msgraph_* HCL block.
-model: claude-sonnet-4-6
+model: claude-haiku-4-5
 tools:
   - Read
   - Agent
@@ -122,6 +122,13 @@ structure (the reviewer already produces sections 2–4; you wrap them):
 2. The reviewer's **Findings** section verbatim.
 3. The reviewer's **Proposed diff** section verbatim (` ```diff ` block).
 4. The reviewer's **References** section verbatim.
+5. The reviewer's **Security summary** section verbatim, when present.
+   The reviewer emits it for every conditional access policy
+   (`msgraph_conditional_access_policy`, or `msgraph_resource`
+   targeting `identity/conditionalAccess/policies`); if the block is
+   a conditional access policy and the reviewer omitted the section,
+   re-dispatch the reviewer once, noting the omission — do not write
+   the summary yourself.
 
 If the reviewer returned an error or refused, surface its message
 verbatim under the heading and stop.

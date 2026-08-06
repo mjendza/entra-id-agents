@@ -15,7 +15,11 @@ The coordinator will:
    live tenant shape (best-effort).
 3. Dispatch `agent-tf-reviewer` to compare the block against both
    schemas and the tenant shape, and produce Findings + a proposed
-   unified diff.
+   unified diff. The review includes a security & operations check
+   (no literal secrets, least-privilege settings), and for
+   conditional access policies the response always ends with a
+   **Security summary** section (scope, enforcement, lockout risk,
+   rollout recommendation).
 
 Read-only: nothing is applied; the diff is for the user to review and
 apply manually.

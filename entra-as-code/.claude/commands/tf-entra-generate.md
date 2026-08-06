@@ -100,6 +100,11 @@ draft + 2 revisions):
    only `info` findings, pure-caveat warnings (beta surface,
    license/permission notes, missing-validation-block warnings you
    choose to keep), or a diff that says `# No changes proposed.`
+   For a conditional access policy, acceptance additionally requires
+   a security summary to exist (the reviewer's `### Security summary`
+   or the README's `## Security summary`); a missing summary is a
+   revision note like any other finding — it consumes a round from
+   the same 3-round cap, never an extra dispatch.
 
 3. Otherwise, if rounds remain, re-dispatch `agent-tf-generator` with
    the Step 3 prompt body plus:
@@ -143,6 +148,13 @@ Report to the user:
    `msgraph_resource` body, so open `error` findings mean the apply
    will likely fail with a Graph 400.
 4. References (doc URLs from the fetchers).
+5. **If the requirement is a conditional access policy**: the
+   **Security summary** — surface the reviewer's `### Security
+   summary` section (falling back to the README's `## Security
+   summary`) verbatim and prominently, directly after the HCL. No
+   extra dispatches here — the Step 4 acceptance gate already
+   guarantees it exists; if rounds were exhausted without one, say
+   so alongside the KNOWN ISSUES block instead.
 
 ## Safety rails
 
