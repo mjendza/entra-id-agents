@@ -134,8 +134,28 @@ Call `microsoft_docs_fetch` on that URL. Extract:
   "Required" or the prose says "must be supplied".
 - **Optional properties (typed)**: a small map of property name →
   type string (e.g. `"signInAudience": "string"`,
-  `"api": "apiApplication"`). Cap at ~20 entries; if more, keep the
-  most commonly used and note that the list is truncated.
+  `"api": "apiApplication"`). Cap at ~20 entries — except when
+  `provider_choice` is `msgraph_resource`, where the generator
+  validates the raw request body against this list: there, cap at ~40
+  and prefer completeness over brevity. If truncated, say so in
+  `notes`.
+- **`example_request_body`**: the JSON object from the doc's
+  "Example" → "Request" section, **verbatim** — do not trim, rename,
+  or re-case keys. This is the ground truth for property casing,
+  `@odata.type`, enum literal values, and nesting. `null` if the page
+  has no example request.
+- **`odata_type`**: the `@odata.type` value from the example request
+  (e.g. `"#microsoft.graph.cloudCertificationAuthority"`), or `null`
+  if the example has none.
+- **`enums`**: map of property name → list of allowed values, for
+  every property whose description lists "Possible values are: ...".
+  Drop the `unknown` / `unknownFutureValue` sentinels. Example:
+  `"certificateKeySize": ["rsa2048", "rsa3072", "rsa4096", "eCP256", "eCP256k", "eCP384", "eCP521"]`.
+- **`read_only`**: list of property names whose description says
+  "Read-only". Auto-generated Intune docs over-mark read-only
+  (properties settable at create are often marked read-only), so this
+  list feeds a reviewer *warning*, not removal — note this caveat in
+  `notes` when the doc is an Intune page.
 - **Deprecations / beta notes**: any banner that says the endpoint or
   a property is in `beta`, deprecated, or has a Graph permission
   caveat.
@@ -192,6 +212,14 @@ summary (one or two sentences) of what you found and any gaps.
       "api": "apiApplication",
       "web": "webApplication"
     },
+    "example_request_body": {
+      "displayName": "Display name"
+    },
+    "odata_type": null,
+    "enums": {
+      "signInAudience": ["AzureADMyOrg", "AzureADMultipleOrgs", "AzureADandPersonalMicrosoftAccount", "PersonalMicrosoftAccount"]
+    },
+    "read_only": ["appId", "createdDateTime"],
     "deprecations": [],
     "doc_url": "https://learn.microsoft.com/en-us/graph/api/application-post-applications"
   },

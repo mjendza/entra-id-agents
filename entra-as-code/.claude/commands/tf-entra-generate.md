@@ -1,5 +1,5 @@
 ---
-description: Generate Terraform (typed azuread_* or generic msgraph_resource) from a natural-language requirement, grounded in Microsoft Learn docs and the live tenant, quality-gated by the reviewer, and written to generated/<slug>/. Read-only toward the tenant — nothing is applied.
+description: Generate Terraform (typed azuread_* or generic msgraph_resource) from a natural-language requirement, grounded in Microsoft Learn docs and the live tenant, quality-gated by a generate→review→revise loop (up to 3 rounds; the reviewer independently re-fetches the Graph create doc, since terraform validate/plan cannot check msgraph_resource bodies), and written to generated/<slug>/. Read-only toward the tenant — nothing is applied.
 argument-hint: <requirement, e.g. "create Intune policy for Enterprise Android" or "create Cloud PKI certification authority">
 ---
 
@@ -71,36 +71,57 @@ Issue **one** `Agent` call:
 
 Pass the fetcher outputs verbatim — do not summarize or rewrite them.
 
-## Step 4: closed-loop quality gate
+## Step 4: closed-loop quality gate (up to 3 rounds)
 
-Extract the ` ```hcl ` block from the generator's reply and dispatch
-the reviewer:
+`terraform validate`/`plan` cannot check a `msgraph_resource` body —
+the provider treats it as an opaque map, and a wrong body only fails
+as a 400 at apply time. The reviewer's independent doc verification
+is therefore the only pre-apply check of the Graph request, and every
+revised draft must go back through it.
 
-- `subagent_type: agent-tf-reviewer`, prompt body:
-  ```
-  original_block: |
-    <the generated resource block(s)>
-  graph_docs: |
-    <same verbatim JSON as Step 3>
-  tenant_shape: |
-    <same verbatim JSON as Step 3>
-  ```
+Loop **generator → reviewer**, at most **3 rounds total** (initial
+draft + 2 revisions):
 
-- If the reviewer reports only `info` findings (or none), or its diff
-  says `# No changes proposed.` (warnings that are pure caveats — beta
-  surface, license/permission notes — need no revision): accept the
-  draft as final.
-- If it reports `error` or `warning` findings **with diff changes**:
-  re-dispatch
-  `agent-tf-generator` **once**, adding to the Step 3 prompt body:
-  ```
-  prior_draft: |
-    <the generator's previous hcl block, verbatim>
-  revision_notes:
-    - <one line per error/warning finding>
-  ```
-  Accept the revised draft as final. **Max one revision round** — do
-  not loop again even if findings remain; surface them instead.
+1. Extract the ` ```hcl ` block from the generator's reply and
+   dispatch the reviewer:
+
+   - `subagent_type: agent-tf-reviewer`, prompt body:
+     ```
+     original_block: |
+       <the generated resource block(s)>
+     graph_docs: |
+       <same verbatim JSON as Step 3>
+     tenant_shape: |
+       <same verbatim JSON as Step 3>
+     ```
+
+2. **Accept** the draft as final if the reviewer reports no `error`
+   findings and no `warning` findings **with diff changes** — i.e.
+   only `info` findings, pure-caveat warnings (beta surface,
+   license/permission notes, missing-validation-block warnings you
+   choose to keep), or a diff that says `# No changes proposed.`
+
+3. Otherwise, if rounds remain, re-dispatch `agent-tf-generator` with
+   the Step 3 prompt body plus:
+   ```
+   prior_draft: |
+     <the generator's previous hcl block, verbatim>
+   revision_notes:
+     - <one line per error/warning finding>
+   ```
+   Then go back to 1: **the revised draft is re-dispatched to the
+   reviewer** — never accept a revision unreviewed.
+
+4. If `error` findings remain after round 3: stop looping, but do NOT
+   silently accept. Prepend this comment block to the final HCL
+   before writing it in Step 5, and repeat the findings in Step 6:
+   ```hcl
+   # KNOWN ISSUES (unresolved review findings):
+   # - [error] <finding>
+   # ...
+   # Review these against the cited docs before terraform apply —
+   # terraform validate/plan will NOT catch body errors.
+   ```
 
 ## Step 5: write files
 
@@ -116,8 +137,11 @@ Report to the user:
 
 1. The file paths written.
 2. The final HCL (fenced).
-3. The reviewer's findings — including any that the revision pass
-   fixed and any that remain open.
+3. The reviewer's findings — how many review rounds ran, which
+   findings the revision passes fixed, and any that remain open.
+   Remind the user that `terraform validate`/`plan` cannot validate a
+   `msgraph_resource` body, so open `error` findings mean the apply
+   will likely fail with a Graph 400.
 4. References (doc URLs from the fetchers).
 
 ## Safety rails

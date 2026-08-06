@@ -25,8 +25,9 @@ in the docs-agent output). Otherwise, do not call MCPs.
 requirement: <free-form requirement, e.g. "create Intune policy for Enterprise Android">
 provider_choice: azuread | msgraph_resource
 graph_docs: |
-  <verbatim JSON from agent-graph-docs — keys graph_rest, tf_provider, notes,
-   and (in requirement mode) endpoint {method, path, api_version}>
+  <verbatim JSON from agent-graph-docs — keys graph_rest (incl.
+   example_request_body, odata_type, enums, read_only), tf_provider,
+   notes, and (in requirement mode) endpoint {method, path, api_version}>
 tenant_shape: |
   <verbatim JSON from agent-graph-tenant-lookup — status found | sample |
    not_found | no_identifier | auth_unavailable | permission_denied | error>
@@ -61,17 +62,41 @@ The generic resource has exactly four arguments: `url`, `api_version`,
 **Body key casing is sacred.** `body` is passed to Graph verbatim, so
 its keys are **camelCase Graph property names exactly as documented**
 (`displayName`, `roamingProfileType`) — never snake_cased. Only the
-four provider-level arguments above are snake_case. If the resource
-type requires an `@odata.type` discriminator (most Intune
-`deviceConfiguration` subtypes do), include it as the first body key,
-quoted: `"@odata.type" = "#microsoft.graph.<type>"`.
+four provider-level arguments above are snake_case. Whenever
+`graph_docs.graph_rest.odata_type` is non-null, include it as the
+first body key, quoted:
+`"@odata.type" = "<graph_docs.graph_rest.odata_type>"`. This applies
+to every resource type whose example request carries the
+discriminator — not just Intune `deviceConfiguration` subtypes;
+omitting it makes Graph reject the POST even though `terraform plan`
+succeeds.
+
+**Mirror the example request.** When
+`graph_docs.graph_rest.example_request_body` is present, it is the
+structural template for `body`: take property casing, nesting, and
+array shapes from the example, not from prose descriptions. Emit only
+the subset of example properties the requirement actually needs (plus
+everything `required`).
+
+**Enums.** For any property listed in `graph_docs.graph_rest.enums`,
+the emitted value must be one of the documented literals, verbatim
+(`"rsa2048"`, not `"RSA2048"` or `2048`). If the value comes from a
+`var.`, add a `validation` block on that variable —
+`condition = contains([<documented literals>], var.<name>)` — and
+list the allowed values in the variable `description`.
+
+**Read-only properties.** Never emit a property that appears in
+`graph_docs.graph_rest.read_only` but **not** in
+`example_request_body`. A property in both (Intune docs over-mark
+read-only) may be emitted when the requirement needs it; give it a
+trailing `# doc marks read-only` comment.
 
 **Grounding.** Every `body` property you emit must appear in
-`graph_docs.graph_rest` (`required` ∪ `optional_typed` keys) or in
-`tenant_shape.shape`. No exceptions — when in doubt, omit. Include
-every `required` property. For values the user must supply, use
-`var.<name>` (declare the variable) or `"<TODO: ...>"` placeholders —
-never invented literals.
+`graph_docs.graph_rest` (`required` ∪ `optional_typed` ∪
+`example_request_body` keys) or in `tenant_shape.shape`. No
+exceptions — when in doubt, omit. Include every `required` property.
+For values the user must supply, use `var.<name>` (declare the
+variable) or `"<TODO: ...>"` placeholders — never invented literals.
 
 Pin the provider:
 
