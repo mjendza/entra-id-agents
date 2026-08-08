@@ -54,11 +54,19 @@ the value is missing or unparseable.
    sorted newest first. Each item carries `title`, `url`, `published_date`, `summary_raw`,
    `categories[]`, `sources[]` (every channel that carried it) and `duplicate_count`.
 
-2. **Handle an empty channel list.** If the document has a `warning` field or
-   `stats.feeds_configured` is `0`, **stop** and tell the user their feed config is empty,
-   naming the file `ask-about-entra/.claude/feeds/entra-feeds.json` and pointing at its
-   `_readme` block for the schema. Do **not** quietly fall back to Entra News and present it
-   as feed coverage — the user asked for their channels.
+2. **Check the `warning` field before reading anything else.** An empty `items[]` has two
+   very different causes, and the script tells you which:
+   - `stats.feeds_configured` is `0` — the feed config is empty. **Stop** and tell the user,
+     naming `ask-about-entra/.claude/feeds/entra-feeds.json` and pointing at its `_readme`
+     block for the schema. Do **not** quietly fall back to Entra News and present it as feed
+     coverage — the user asked for their channels.
+   - `stats.feeds_ok` is `0` with channels configured — nothing was reachable. **Say so
+     plainly and lead with it**, quoting the per-channel errors from `feed_status[]`. Never
+     render this as "no changes this week": a failed fetch is not a quiet week, and reporting
+     it as one is the worst failure mode this agent has.
+
+   If only *some* channels failed, carry on with what you got and report the failures in the
+   coverage footer.
 
 3. **Cross-check with Entra News.** Call `search_entra_news` (1–2 queries) scoped to the same
    window. Fold in anything genuinely absent from the feed results, marked as sourced from

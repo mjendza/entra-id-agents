@@ -186,10 +186,15 @@ builders: instead of *"how should I configure X"*, it answers *"what
 changed recently"*. It reads RSS/Atom channels you configure — nothing
 is assumed on your behalf.
 
-**Ships empty.** `.claude/feeds/entra-feeds.json` has an empty `feeds`
-array and a `_readme` block documenting the schema. Add your channels
-there and the command starts working; until then the agent tells you the
-config is empty rather than silently substituting another source.
+**Channels live in `.claude/feeds/entra-feeds.json`**, which carries a
+`_readme` block documenting the schema. It currently ships with one
+channel — the Microsoft 365 Message Center mirror at
+`https://msmessagecenter.com/feed.xml` — filtered down to identity
+items. Add your own alongside it.
+
+An empty result is never ambiguous: the agent distinguishes *no channels
+configured*, *no channel reachable*, and *genuinely nothing published*,
+and it will not report a failed fetch as a quiet week.
 
 Each entry takes a `name` and `url`, plus optional `enabled`,
 `scope_hint` (nudges scope classification for a single-subject channel),

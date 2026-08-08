@@ -514,10 +514,19 @@ def main(argv=None) -> int:
         "items": items,
     }
 
+    # An empty items[] means two very different things — nothing was published,
+    # or nothing could be reached. Say which, so the report never presents a
+    # total fetch failure as a quiet week.
     if not cfg["feeds"]:
         document["warning"] = (
             f"No RSS/Atom channels are configured in {args.config}. Add entries to "
             "the 'feeds' array before running /last-entra-changes."
+        )
+    elif document["stats"]["feeds_ok"] == 0:
+        document["warning"] = (
+            "Every configured channel failed or is disabled — this run reached no "
+            "sources at all, so an empty result says nothing about what changed. "
+            "See feed_status[] for the per-channel errors."
         )
 
     payload = json.dumps(document, indent=2, ensure_ascii=False)

@@ -2,8 +2,8 @@
   "_readme": [
     "RSS/Atom channels for /last-entra-changes (agent-entra-change-tracker).",
     "",
-    "This file ships EMPTY on purpose. Add your own channels to the 'feeds'",
-    "array below — it is the only file you need to touch to switch the agent on.",
+    "Add your own channels to the 'feeds' array below — it is the only file you",
+    "need to touch to switch the agent on.",
     "",
     "Feed entry keys:",
     "  name        required. Shown in the report's Source column.",
@@ -45,5 +45,46 @@
   "global_include": [],
   "global_exclude": [],
 
-  "feeds": []
+  "feeds": [
+    {
+      "name": "Microsoft 365 Message Center",
+      "url": "https://msmessagecenter.com/feed.xml",
+      "enabled": true,
+      "scope_hint": "",
+      "include": [
+        "\\bentra\\b",
+        "azure active directory",
+        "\\bazure ad\\b",
+        "conditional access",
+        "identity protection",
+        "privileged identity management",
+        "\\bPIM\\b",
+        "entitlement management",
+        "access review",
+        "lifecycle workflow",
+        "identity governance",
+        "global secure access",
+        "external id",
+        "b2b collaboration",
+        "cross-tenant",
+        "\\bverified id\\b",
+        "microsoft authenticator",
+        "passwordless",
+        "\\bpasskey",
+        "\\bfido2\\b",
+        "multi-?factor authentication",
+        "\\bMFA\\b",
+        "single sign-on",
+        "\\bSSO\\b",
+        "service principal",
+        "app registration",
+        "enterprise application",
+        "microsoft graph",
+        "sign-in log",
+        "authentication method"
+      ],
+      "exclude": [],
+      "note": "Message Center posts across all Microsoft 365 workloads, so the include list narrows it to identity. If it turns out to be Entra-only, empty the include array to stop dropping items; if it is noisier than expected, tighten it. Compare against `--include-all` to see what the filters are dropping."
+    }
+  ]
 }
