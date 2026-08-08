@@ -122,6 +122,14 @@ the fast single-shot path.
   News (recency + community tools), and returns a screen-ready summary
   with documentation and article links. Chat-only; writes no files and
   bypasses the coordinator/librarian pipeline.
+- **`agent-entra-change-tracker`** — read-only change tracker for the
+  `/last-entra-changes` path. Answers *"what changed in Entra ID
+  lately?"* over a 7- or 30-day window, sourced from the RSS/Atom
+  channels in `.claude/feeds/entra-feeds.json` and cross-checked against
+  Entra News. Runs `scripts/entra-feeds.py` for the exact work (fetch,
+  window filter, de-duplicate) and does the judgement work itself:
+  scope/area classification, change type, and a short plus long summary
+  per change. Chat-only; writes no files.
 
 ## Slash commands
 
@@ -141,6 +149,10 @@ the fast single-shot path.
   single Entra ID question as an Identity Architect (summary + Microsoft
   Learn and Entra News links) printed on screen. Writes no files and
   bypasses the solution-builder pipeline.
+- **`/last-entra-changes [7d|30d]`** — what changed in Entra ID over the
+  last week or 30 days. Prints a de-duplicated table (date, scope/area,
+  change type, short summary, reference link) followed by a longer
+  write-up per change and a coverage footer. Defaults to `7d`. Chat-only.
 
 ## How to use
 
@@ -166,6 +178,45 @@ calls these MCPs — every other agent works off its curated excerpts. On
 first launch `entra-news-mcp` downloads a small SQLite archive; keyword
 search works out of the box (semantic search additionally needs an
 OpenAI key).
+
+### Change tracking (`/last-entra-changes`)
+
+`/last-entra-changes` is the recency counterpart to the solution
+builders: instead of *"how should I configure X"*, it answers *"what
+changed recently"*. It reads RSS/Atom channels you configure — nothing
+is assumed on your behalf.
+
+**Ships empty.** `.claude/feeds/entra-feeds.json` has an empty `feeds`
+array and a `_readme` block documenting the schema. Add your channels
+there and the command starts working; until then the agent tells you the
+config is empty rather than silently substituting another source.
+
+Each entry takes a `name` and `url`, plus optional `enabled`,
+`scope_hint` (nudges scope classification for a single-subject channel),
+and `include` / `exclude` — case-insensitive regex lists. The regexes
+matter most on **broad** channels: point the agent at a general Azure or
+M365 release feed and an `include` list like
+`["\\bentra\\b", "conditional access", "identity governance"]` keeps the
+report to identity items. A channel that is already Entra-only needs no
+filters at all.
+
+Check what is wired up, without fetching anything:
+
+```bash
+cd ask-about-entra
+python3 scripts/entra-feeds.py --list-feeds
+```
+
+**Why a script.** `scripts/entra-feeds.py` (standard library only, no
+dependencies) does the work that has to be exact — fetching every
+channel, parsing RSS 2.0 and Atom, dropping anything outside the window,
+and merging duplicates. Two items collapse into one when they share a
+canonical URL (tracking parameters stripped) or a normalised title
+(status decorations like `[In preview]` removed), and the survivor keeps
+the *earliest* publication date and lists every channel that carried it.
+A channel that times out or returns bad XML is reported in the footer
+and never aborts the run. The agent, meanwhile, does only the judgement
+work: scope/area, change type, and the summaries.
 
 ### Output layout
 
