@@ -187,10 +187,17 @@ changed recently"*. It reads RSS/Atom channels you configure — nothing
 is assumed on your behalf.
 
 **Channels live in `.claude/feeds/entra-feeds.json`**, which carries a
-`_readme` block documenting the schema. It currently ships with one
-channel — the Microsoft 365 Message Center mirror at
-`https://msmessagecenter.com/feed.xml` — filtered down to identity
-items. Add your own alongside it.
+`_readme` block documenting the schema. It currently ships with two
+channels, and they illustrate the two shapes a channel takes:
+
+- **Microsoft 365 Message Center** (`msmessagecenter.com/feed.xml`) —
+  broad, covering every M365 workload, so it carries an `include` list
+  narrowing it to identity items.
+- **Entra Change Tracker** (`api.aboutcloud.io/entra-tracker`) —
+  already Entra-scoped, so no filters at all. Filtering an
+  already-scoped channel only risks dropping items.
+
+Add your own alongside them.
 
 An empty result is never ambiguous: the agent distinguishes *no channels
 configured*, *no channel reachable*, and *genuinely nothing published*,

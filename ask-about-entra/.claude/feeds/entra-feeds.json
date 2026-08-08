@@ -85,6 +85,15 @@
       ],
       "exclude": [],
       "note": "Message Center posts across all Microsoft 365 workloads, so the include list narrows it to identity. If it turns out to be Entra-only, empty the include array to stop dropping items; if it is noisier than expected, tighten it. Compare against `--include-all` to see what the filters are dropping."
+    },
+    {
+      "name": "Entra Change Tracker (aboutcloud.io)",
+      "url": "https://api.aboutcloud.io/entra-tracker?format=rss",
+      "enabled": true,
+      "scope_hint": "",
+      "include": [],
+      "exclude": [],
+      "note": "Dedicated Entra change tracker, so no include filters — everything it publishes is in scope, and filtering an already-scoped channel only risks dropping items. Add exclude patterns if it turns out to carry noise."
     }
   ]
 }
