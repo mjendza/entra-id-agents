@@ -1,7 +1,7 @@
 ---
 name: agent-tf-coordinator
 description: Central orchestrator for reviewing a single Terraform resource block from the microsoft/microsoft-graph provider (msgraph_* resources). Dispatches agent-graph-docs and agent-graph-tenant-lookup in parallel to gather the Graph REST schema and the live tenant shape, then dispatches agent-tf-reviewer to produce findings and a proposed diff. Invoke this whenever the user asks to review or fix an msgraph_* HCL block.
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Agent

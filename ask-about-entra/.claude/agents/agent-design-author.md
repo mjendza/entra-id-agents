@@ -1,7 +1,7 @@
 ---
 name: agent-design-author
 description: Content-only author. Produces an Entra ID architecture / design document (Markdown) for a given topic, grounded in librarian excerpts. Returns the full Markdown body as a single fenced block — never writes files. Used by agent-solution-coordinator.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
 ---

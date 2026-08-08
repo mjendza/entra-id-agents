@@ -1,7 +1,7 @@
 ---
 name: agent-policy-author
 description: Content-only author. Produces ready-to-import policy / configuration templates for Entra ID — Conditional Access JSON, custom-role JSON, claims-mapping policy JSON, authentication-method policy JSON, entitlement-management package YAML, etc. — grounded in librarian excerpts. Returns one or more fenced blocks (one per artifact) plus filenames. Never writes files.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
 ---

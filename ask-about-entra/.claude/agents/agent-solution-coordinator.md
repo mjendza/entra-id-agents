@@ -1,7 +1,7 @@
 ---
 name: agent-solution-coordinator
 description: Central orchestrator for the ask-about-entra solution-builder farm. Given an Entra ID topic plus a list of requested deliverables (design, runbook, iac, policy), asks agent-learn-librarian for MS Learn + Entra-news excerpts, dispatches the relevant author agents in parallel, runs agent-doc-reviewer, then writes the artifacts to solutions/<slug>/ and posts a chat summary. Invoke this for any "build a document/solution for Entra ID" request.
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Glob

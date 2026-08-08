@@ -1,7 +1,7 @@
 ---
 name: agent-runbook-author
 description: Content-only author. Produces a step-by-step implementation runbook (Markdown) for an Entra ID topic, grounded in librarian excerpts. Includes portal, Graph, and CLI variants where the excerpts support them. Returns the full Markdown body as a single fenced block — never writes files. Used by agent-solution-coordinator.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
 ---

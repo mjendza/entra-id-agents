@@ -1,7 +1,7 @@
 ---
 name: agent-doc-reviewer
 description: Read-only reviewer for ask-about-entra. Sanity-checks each draft artifact against the librarian's MS Learn excerpts and flags claims that aren't supported or that contradict the excerpts. Returns a JSON verdict the coordinator uses to decide whether to send each draft back for one revision pass.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
 ---

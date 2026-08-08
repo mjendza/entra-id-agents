@@ -1,7 +1,7 @@
 ---
 name: agent-iac-author
 description: Content-only author. Produces Infrastructure-as-Code (Bicep by default, Terraform when iac_flavor=terraform) for Entra ID resources — Conditional Access policies, app registrations, named locations, custom roles, authentication-method policies, etc. — grounded in librarian excerpts and Microsoft Learn code samples. Returns the IaC source and an apply-instructions stub. Never writes files.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
   - mcp__microsoft-learn__microsoft_code_sample_search

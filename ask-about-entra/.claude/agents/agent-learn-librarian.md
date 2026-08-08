@@ -1,7 +1,7 @@
 ---
 name: agent-learn-librarian
 description: Read-only research librarian for the ask-about-entra farm. Queries Microsoft Learn (search + fetch + code samples) and the entra-news MCP to pull best-practice excerpts and recent changes for an Entra ID topic. Returns a structured JSON block tagged by deliverable type. Never authors content, never writes files.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
   - mcp__microsoft-learn__microsoft_docs_search

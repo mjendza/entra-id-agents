@@ -1,7 +1,7 @@
 ---
 name: agent-improvement-coordinator
 description: Closed-loop orchestrator for ask-about-entra. Like agent-solution-coordinator, but after the initial draft+review pass it iterates with agent-quality-inspector — re-dispatching authors with the inspector's hard_issues + improvements — until every draft passes or three iterations have run. Invoke this only when the user explicitly asks for the looping / self-improving variant (typically via /entra-solution-loop).
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Glob

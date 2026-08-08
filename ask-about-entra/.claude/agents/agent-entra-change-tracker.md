@@ -7,7 +7,7 @@ description: >
   changes that appear in several channels, classifies each one by scope/area, and returns a
   screen-ready table plus short and long summaries with reference links. Chat-only — never
   writes files. Invoked by /last-entra-changes.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Bash
   - Read

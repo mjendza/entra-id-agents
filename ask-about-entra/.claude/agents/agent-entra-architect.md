@@ -6,7 +6,7 @@ description: >
   (Microsoft Learn) and relevant Entra News articles. Grounds every claim in the two MCP
   sources. Chat-only — never writes files, never dispatches other agents. Invoked by
   /simple-ask.
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - mcp__microsoft-learn__microsoft_docs_search
