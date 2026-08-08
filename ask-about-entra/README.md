@@ -149,10 +149,15 @@ the fast single-shot path.
   single Entra ID question as an Identity Architect (summary + Microsoft
   Learn and Entra News links) printed on screen. Writes no files and
   bypasses the solution-builder pipeline.
-- **`/last-entra-changes [7d|30d]`** — what changed in Entra ID over the
-  last week or 30 days. Prints a de-duplicated table (date, scope/area,
+- **`/entra-changes-week`** — what changed in Entra ID over the last 7
+  days. No arguments. Prints a de-duplicated table (date, scope/area,
   change type, short summary, reference link) followed by a longer
-  write-up per change and a coverage footer. Defaults to `7d`. Chat-only.
+  write-up per change and a coverage footer. Chat-only.
+- **`/entra-changes-month`** — the same report over the last 30 days.
+  No arguments.
+- **`/last-entra-changes [7d|30d]`** — the parameterised form of the
+  two above, for a window they don't cover (`14d`, `3m`, `week`,
+  `month`, or a bare number of days). Defaults to `7d`.
 
 ## How to use
 
