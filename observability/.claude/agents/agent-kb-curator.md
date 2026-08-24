@@ -1,7 +1,7 @@
 ---
 name: agent-kb-curator
 description: Use this agent to retrieve matching KQL snippets from the local kb/ folder for an Entra ID / Azure AD log question. Returns structured snippet candidates tagged by domain so a coordinator can route them to the right executor. Read-only on kb/.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
   - Glob

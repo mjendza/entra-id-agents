@@ -1,7 +1,7 @@
 ---
 name: agent-improvement-coordinator
 description: Closed-loop orchestrator for ask-about-entra. Like agent-solution-coordinator, but after the initial draft+review pass it iterates with agent-quality-inspector — re-dispatching authors with the inspector's hard_issues + improvements — until every draft passes or three iterations have run. Invoke this only when the user explicitly asks for the looping / self-improving variant (typically via /entra-solution-loop).
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Glob
@@ -75,6 +75,7 @@ Prompt body:
 ```
 topic: <topic>
 deliverables: <comma-separated list>
+as_of: <today's date, YYYY-MM-DD>
 ```
 
 Expect a single fenced JSON block in the response with keys `excerpts`,
@@ -142,12 +143,17 @@ drafts:
       <full draft content>
   - ...
 excerpts:
-  <verbatim from librarian_output>
+  <the `excerpts` array from librarian_output, verbatim>
+recent_changes:
+  <the `recent_changes` array from librarian_output, verbatim>
 ```
 
 The reviewer returns a JSON block of per-draft verdicts. For any draft
-with verdict `revise`, re-dispatch **just that one author** with an
-added `revision_notes:` block containing the reviewer's `issues` list.
+with verdict `revise`, re-dispatch **just that one author** with two
+added blocks: `revision_notes:` containing the reviewer's `issues`
+list, and `previous_draft:` containing that author's full current draft
+body — the author applies the fixes to the draft rather than
+regenerating from scratch.
 Allow at most one revision pass here — same hard rule as the existing
 `agent-solution-coordinator`. If the reviewer still flags a draft on
 round 2, accept the revised draft and carry the residual issue forward
@@ -184,7 +190,9 @@ drafts:
       <full current draft content>
   - ...
 excerpts:
-  <verbatim from librarian_output>
+  <the `excerpts` array from librarian_output, verbatim>
+recent_changes:
+  <the `recent_changes` array from librarian_output, verbatim>
 prior_inspector_output:    # omit on iteration 1
   <verbatim JSON from the previous iteration's inspector call, if any>
 ```
@@ -204,9 +212,11 @@ in-memory `iteration_log` list with `{iteration: i, inspector_output:
 - If `stagnation == true` → record `actions: ["exit: stagnation"]` and **exit the loop**.
 - Otherwise: for each draft with verdict `improve`, re-dispatch the
   matching author. The author prompt body is the same shape as in Step
-  3, with one added block:
+  3, with two added blocks:
 
   ```
+  previous_draft: |
+    <that author's full current draft body from current_drafts>
   revision_notes:
     # hard issues (must fix)
     - HARD: <hard_issues[0]>
@@ -255,7 +265,8 @@ Also `Write` three coordinator-authored files:
 
 - `solutions/<slug>/sources.md` — bulleted list of every URL referenced
   by the librarian (excerpts + recent_changes + community_tools), in the
-  order they appeared. One bullet per URL: `- [title](url)`.
+  order they appeared, deduplicated by URL (keep the first occurrence).
+  One bullet per URL: `- [title](url)`.
 - `solutions/<slug>/README.md` — overview composed by you:
   - H1: the topic
   - One-paragraph summary (your own, drawn from author intros)

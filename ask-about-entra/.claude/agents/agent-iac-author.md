@@ -1,7 +1,7 @@
 ---
 name: agent-iac-author
 description: Content-only author. Produces Infrastructure-as-Code (Bicep by default, Terraform when iac_flavor=terraform) for Entra ID resources — Conditional Access policies, app registrations, named locations, custom roles, authentication-method policies, etc. — grounded in librarian excerpts and Microsoft Learn code samples. Returns the IaC source and an apply-instructions stub. Never writes files.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
   - mcp__microsoft-learn__microsoft_code_sample_search
@@ -36,6 +36,8 @@ recent_changes:
     headline: ...
     url: ...
     deprecation: true|false
+previous_draft: |                  # optional, only on revision pass
+  <your full prior IaC file content>
 revision_notes:                    # optional
   - <fix item>
 ```
@@ -66,9 +68,9 @@ and an apply-instructions block saying the same.
 
 ## Terraform rules
 
-- Use the `azuread` provider (HashiCorp) for directory objects and the
-  `microsoft365_*` providers for newer surfaces only if MS Learn
-  excerpts document them. Pin provider versions in a
+- Use the `azuread` provider (HashiCorp) for directory objects. Use
+  any other provider only when an MS Learn excerpt explicitly documents
+  it — never guess a provider name. Pin provider versions in a
   `terraform { required_providers { ... } }` block at the top.
 - Same param/variable discipline as Bicep: declare all tenant-specific
   values as `variable` blocks with `description` fields. Never
@@ -130,7 +132,10 @@ Return exactly **two** fenced code blocks, in this order, with no
 prose between or around them:
 
 1. The IaC file content, tagged ` ```bicep ` or ` ```hcl `.
-2. The apply-instructions Markdown, tagged ` ```markdown `.
+2. The apply-instructions Markdown, tagged ` ````markdown ` — **use a
+   four-backtick outer fence** here, because the README body contains
+   its own triple-backtick ` ```bash ` block which would terminate a
+   triple-backtick outer fence early.
 
 The coordinator extracts both: the first goes to
 `solutions/<slug>/iac/main.<bicep|tf>`, the second to
@@ -148,4 +153,7 @@ The coordinator extracts both: the first goes to
 - **Deprecations**: if `recent_changes` flags a deprecated resource or
   API version, do NOT emit it. Use the replacement documented in the
   excerpts. Add a top-of-file comment naming the deprecation avoided.
-- **Revision pass**: apply every item in `revision_notes`.
+- **Revision pass**: start from `previous_draft` and apply every item
+  in `revision_notes` as minimal edits — do not rewrite untouched
+  resources. If `previous_draft` is missing, draft fresh and still
+  honor every note.

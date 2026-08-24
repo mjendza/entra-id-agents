@@ -1,7 +1,7 @@
 ---
 name: agent-audit-executor
 description: Use this agent to run KQL against Entra directory-change telemetry (AuditLogs, AADProvisioningLogs). Receives a sub-question, an optional KQL pattern from the KB curator, and a workspace dict; adapts and executes the query via Azure-Mcp.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
   - Grep

@@ -1,7 +1,7 @@
 ---
 name: agent-risk-executor
 description: Use this agent to run KQL against Entra ID Protection tables (RiskyUsers, AADUserRiskEvents, AADServicePrincipalRiskEvents, RiskyServicePrincipals) and to execute heavyweight threat-hunt patterns sourced from kb/Dalonso-Security-Repo/ and kb/AzureCustomDetections/. Receives a sub-question, an optional KQL pattern from the KB curator, and a workspace dict.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
   - Grep

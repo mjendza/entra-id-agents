@@ -1,7 +1,7 @@
 ---
 name: agent-graph-docs
 description: Use this agent to fetch the Microsoft Graph REST API schema (CREATE call) and the matching Terraform provider attribute schema, given either an msgraph_* resource type (review mode) or a free-form requirement plus provider choice (requirement mode, for generation). Read-only — queries the microsoft-learn MCP and returns a structured JSON block plus a short prose summary. Never edits files, never calls Lokka, never proposes fixes.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - mcp__microsoft-learn__microsoft_docs_search
   - mcp__microsoft-learn__microsoft_docs_fetch
