@@ -1,7 +1,7 @@
 ---
 name: agent-graph-tenant-lookup
 description: Use this agent to GET a single Microsoft Graph resource from the live tenant via the Lokka-Microsoft MCP, to serve as a real-world reference shape for a Terraform review or generation. Accepts either an msgraph_* resource type (review mode) or a direct Graph URL (sample mode, $top=1). Read-only — only HTTP GET, never POST/PATCH/DELETE. Returns a small structured JSON result indicating found, sample, not_found, no_identifier, auth_unavailable, or permission_denied.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - mcp__Lokka-Microsoft__Lokka-Microsoft
   - mcp__Lokka-Microsoft__get-auth-status

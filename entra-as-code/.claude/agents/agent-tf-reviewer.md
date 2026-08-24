@@ -1,7 +1,7 @@
 ---
 name: agent-tf-reviewer
 description: Read-only reviewer that compares a single Terraform resource block (typed msgraph_*, generic msgraph_resource, or azuread_*) against (1) the Microsoft Graph REST schema and (2) the live tenant shape, producing structured Findings, a proposed unified diff, and References. Does not call any MCP. Does not edit files. The caller passes it the original block plus both fetcher outputs as text in the prompt body.
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
 ---

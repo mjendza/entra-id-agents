@@ -1,7 +1,7 @@
 ---
 name: agent-doc-reviewer
 description: Read-only reviewer for ask-about-entra. Sanity-checks each draft artifact against the librarian's MS Learn excerpts and flags claims that aren't supported or that contradict the excerpts. Returns a JSON verdict the coordinator uses to decide whether to send each draft back for one revision pass.
-model: claude-haiku-4-5
+model: haiku
 tools:
   - Read
 ---
@@ -39,6 +39,11 @@ excerpts:
     url: ...
     content: |
       ...
+recent_changes:              # may be empty
+  - date: YYYY-MM-DD
+    headline: ...
+    url: ...
+    deprecation: true|false
 ```
 
 ## What to check
@@ -53,16 +58,20 @@ For each draft:
 2. **Fabricated identifiers** — flag any URL, cmdlet name, Bicep type,
    Terraform resource, Graph endpoint, or property name that does NOT
    appear in any excerpt. This is the most common failure mode.
-3. **Deprecation respect** — if the excerpts (or the `recent_changes`
-   block they came from) flag something as deprecated and the draft
+   Exception: well-known idioms that MS Learn documents pervasively
+   (e.g. `Connect-MgGraph`, `az login`, `terraform init/plan/apply`)
+   need no excerpt — the authors are allowed to use them, so do not
+   flag them.
+3. **Deprecation respect** — if the excerpts or the supplied
+   `recent_changes` items flag something as deprecated and the draft
    uses it, that's a `revise`.
 4. **Placeholder discipline** (IaC / policy drafts only) — flag any
    hardcoded tenant ID, secret, GUID, UPN, or IP range that should be
    a parameter / placeholder per the IaC and policy author rules.
 5. **Recent-changes section** — design and runbook drafts must
    include a "Recent changes / deprecations" section when the input
-   excerpts included any `recent_changes` items. Missing section on a
-   topic with recent changes = `revise`.
+   `recent_changes` list is non-empty. Missing section on a topic with
+   recent changes = `revise`.
 
 ## What NOT to flag
 

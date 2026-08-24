@@ -10,6 +10,8 @@
       "mcp__microsoft-learn__microsoft_code_sample_search",
       "mcp__entra-news-mcp__search_entra_news",
       "mcp__entra-news-mcp__find_tool_mentions",
+      "Bash(python3 scripts/entra-feeds.py:*)",
+      "Bash(python3 ask-about-entra/scripts/entra-feeds.py:*)",
       "Write(solutions/**)"
     ]
   }

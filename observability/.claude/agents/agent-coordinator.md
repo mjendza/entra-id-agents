@@ -1,7 +1,7 @@
 ---
 name: agent-coordinator
 description: Central orchestrator for Entra ID log questions. Resolves the workspace, asks agent-kb-curator for matching KQL snippets, fans out sub-questions to executor specialists (agent-signin-executor, agent-audit-executor, agent-risk-executor) in parallel, and composes the final response. Invoke this for any Entra ID log question that may span multiple data sources or require multi-step analysis.
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Glob
