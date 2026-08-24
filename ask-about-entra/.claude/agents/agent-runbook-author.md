@@ -32,6 +32,8 @@ recent_changes:
     headline: ...
     url: ...
     deprecation: true|false
+previous_draft: |         # optional, only on revision pass
+  <your full prior draft body>
 revision_notes:           # optional, only on revision pass
   - <fix item from reviewer>
 ```
@@ -122,16 +124,27 @@ from MS Learn where available.>
 - **No TODO markers** unless a section is entirely unsupported by
   excerpts — write `> TODO: needs MS Learn citation for <step>.` and
   move on.
-- **Revision pass**: apply every item in `revision_notes` literally.
+- **Revision pass**: start from `previous_draft` and apply every item
+  in `revision_notes` literally, as minimal edits — do not rewrite
+  untouched steps. If `previous_draft` is missing, draft fresh and
+  still honor every note.
 
 ## Output format
 
 Return exactly one fenced code block with language tag `markdown`. No
-prose before or after the fence.
+prose before or after the fence. **Use a four-backtick outer fence**
+(` ````markdown `) — your document contains triple-backtick code
+blocks, and a triple-backtick outer fence would be terminated early by
+the first of them.
 
-````
-```markdown
+`````
+````markdown
 # <Topic> — runbook
-...
+
+```powershell
+Connect-MgGraph -Scopes "..."
 ```
+
+...
 ````
+`````

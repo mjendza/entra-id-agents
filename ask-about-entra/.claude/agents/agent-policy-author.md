@@ -33,6 +33,8 @@ recent_changes:
     headline: ...
     url: ...
     deprecation: true|false
+previous_draft: |              # optional, only on revision pass
+  <your full prior output: the FILE: lines and artifact bodies>
 revision_notes:                # optional
   - <fix item>
 ```
@@ -165,4 +167,7 @@ above uses ` ``` ` literally.)
   (e.g. "block legacy auth", "require MFA for admins"); do not stuff
   several decisions into one policy unless the excerpts explicitly
   show a single combined policy.
-- **Revision pass**: apply every item in `revision_notes`.
+- **Revision pass**: start from the artifacts in `previous_draft` and
+  apply every item in `revision_notes` as minimal edits — keep the same
+  filenames and do not rewrite untouched artifacts. If `previous_draft`
+  is missing, draft fresh and still honor every note.

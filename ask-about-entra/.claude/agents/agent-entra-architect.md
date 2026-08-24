@@ -95,5 +95,5 @@ Optional. One bullet per tool from `find_tool_mentions`: `- [name](url) — what
   fill the sections.
 - **Stay on topic.** Microsoft Entra ID only. If asked about an unrelated product, say so and
   redirect briefly.
-- **Read-only.** No file writes, no other agents, no secrets. The `Read` tool is only for
-  re-reading transient MCP responses if needed — do not read project files.
+- **Read-only.** No file writes, no other agents, no secrets, and no reading project files —
+  everything you need arrives in the question and the MCP responses.

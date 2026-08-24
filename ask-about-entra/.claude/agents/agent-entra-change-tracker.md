@@ -50,6 +50,9 @@ the value is missing or unparseable.
    python3 scripts/entra-feeds.py --window <window>
    ```
 
+   On Windows, `python3` is often not on PATH — if the command is not
+   found, retry with `python`, then `py -3`.
+
    The script prints one JSON document: `window`, `stats`, `feed_status[]`, and `items[]`
    sorted newest first. Each item carries `title`, `url`, `published_date`, `summary_raw`,
    `categories[]`, `sources[]` (every channel that carried it) and `duplicate_count`.

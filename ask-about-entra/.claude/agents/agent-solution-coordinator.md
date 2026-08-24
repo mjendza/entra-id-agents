@@ -77,6 +77,7 @@ Prompt body:
 ```
 topic: <topic>
 deliverables: <comma-separated list>
+as_of: <today's date, YYYY-MM-DD>
 ```
 
 Expect a single fenced JSON block in the response with keys `excerpts`,
@@ -143,12 +144,17 @@ drafts:
       <full draft content>
   - ...
 excerpts:
-  <verbatim from librarian>
+  <the `excerpts` array from the librarian JSON, verbatim>
+recent_changes:
+  <the `recent_changes` array from the librarian JSON, verbatim>
 ```
 
 The reviewer returns a JSON block of per-draft verdicts. For any draft
-with verdict `revise`, re-dispatch **just that one author** with an
-added `revision_notes:` block containing the reviewer's fix list. Allow
+with verdict `revise`, re-dispatch **just that one author** with two
+added blocks: `revision_notes:` containing the reviewer's fix list, and
+`previous_draft:` containing that author's full current draft body —
+the author applies the fixes to the draft rather than regenerating from
+scratch. Allow
 at most one revision pass — if the reviewer still flags it, accept the
 revised draft and note the residual concern in the chat summary.
 
@@ -167,7 +173,8 @@ Also `Write` two coordinator-authored files:
 
 - `solutions/<slug>/sources.md` — bulleted list of every URL referenced
   by the librarian (excerpts + recent_changes + community_tools), in the
-  order they appeared. One bullet per URL: `- [title](url)`.
+  order they appeared, deduplicated by URL (keep the first occurrence).
+  One bullet per URL: `- [title](url)`.
 - `solutions/<slug>/README.md` — overview composed by you:
   - H1: the topic
   - One-paragraph summary (your own, drawn from author intros)
