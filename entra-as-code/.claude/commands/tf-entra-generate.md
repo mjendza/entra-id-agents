@@ -1,5 +1,5 @@
 ---
-description: Generate Terraform (typed azuread_* or generic msgraph_resource) from a natural-language requirement, grounded in Microsoft Learn docs and the live tenant, quality-gated by the reviewer, and written to generated/<slug>/. Read-only toward the tenant — nothing is applied.
+description: Generate Terraform (typed azuread_* or generic msgraph_resource) from a natural-language requirement, grounded in Microsoft Learn docs and the live tenant, quality-gated by a generate→review→revise loop (up to 3 rounds; the reviewer independently re-fetches the Graph create doc, since terraform validate/plan cannot check msgraph_resource bodies), and written to generated/<slug>/. Read-only toward the tenant — nothing is applied.
 argument-hint: <requirement, e.g. "create Intune policy for Enterprise Android" or "create Cloud PKI certification authority">
 ---
 
@@ -52,8 +52,61 @@ In **one assistant message**, issue exactly two `Agent` calls:
   If you cannot guess a path, skip this call and treat the tenant
   shape as `{"status": "no_identifier"}`.
 
-The tenant lookup is best-effort: `auth_unavailable`, `not_found`, or
-`permission_denied` results are fine — proceed with docs only.
+### The tenant lookup is optional — never let it block generation
+
+It is the only step that needs the `Lokka-Microsoft` MCP server, and
+that server is **often not configured**. Every unhappy outcome collapses
+to the same handling: record an `auth_unavailable` tenant shape and
+continue on docs-only grounding.
+
+Treat all of these identically:
+
+- `auth_unavailable`, `not_found`, `permission_denied`, `no_identifier`,
+  or `error` in the returned JSON.
+- **The agent cannot be spawned at all** — dispatch fails with "would be
+  spawned with zero tools", an unrecognized/empty tool list, or an
+  unavailable subagent type. This happens whenever Lokka is absent.
+
+In every case, synthesize the shape yourself and move on:
+
+```json
+{ "status": "auth_unavailable", "detail": "<verbatim error, or 'Lokka-Microsoft MCP server not configured'>" }
+```
+
+Then:
+
+- **Do not retry** the dispatch or vary the prompt to get it to spawn.
+- **Do not substitute** another agent, and do not try the Graph GET
+  yourself by another route — a fabricated tenant shape is worse than
+  none, because the reviewer treats `shape` as ground truth for
+  structural checks.
+- **Skip it proactively.** If you already know Lokka isn't configured
+  (a prior dispatch this session failed, or the tool list shows no
+  `mcp__Lokka-Microsoft__*` tools), don't dispatch it at all — write the
+  `auth_unavailable` shape straight to `tenant_shape.json` in Step 2a
+  and issue only the `agent-graph-docs` call. A skipped dispatch is
+  strictly cheaper than a failed one.
+- **Say so once** in Step 6: note that the live-tenant structural
+  cross-check was skipped and the output is docs-grounded only. Don't
+  present it as an error — in a tenant-less setup it is the normal path.
+
+## Step 2a: stage the grounding to disk (do this once)
+
+The grounding JSON is consumed by up to six dispatches. Re-pasting it
+into each one duplicates thousands of tokens per round, so write it
+**once** and pass paths thereafter:
+
+- `Write` the verbatim `agent-graph-docs` JSON to
+  `<scratchpad>/graph_docs.json`.
+- `Write` the verbatim `agent-graph-tenant-lookup` JSON (or
+  `{"status":"no_identifier"}` / the `auth_unavailable` object) to
+  `<scratchpad>/tenant_shape.json`.
+
+`<scratchpad>` is the session scratchpad directory from your
+environment — never inside `generated/`. Write the fetcher output
+**verbatim**: do not summarize, re-key, or "clean up" the JSON on the
+way in. These two files are the single source of grounding truth for
+every dispatch below.
 
 ## Step 3: dispatch the generator
 
@@ -63,48 +116,97 @@ Issue **one** `Agent` call:
   ```
   requirement: <verbatim>
   provider_choice: <azuread | msgraph_resource>
-  graph_docs: |
-    <verbatim JSON from agent-graph-docs>
-  tenant_shape: |
-    <verbatim JSON from agent-graph-tenant-lookup, or {"status":"no_identifier"}>
+  graph_docs_path: <scratchpad>/graph_docs.json
+  tenant_shape_path: <scratchpad>/tenant_shape.json
   ```
 
-Pass the fetcher outputs verbatim — do not summarize or rewrite them.
+Pass paths, not inlined JSON. Both the generator and the reviewer
+`Read` these files themselves.
 
-## Step 4: closed-loop quality gate
+## Step 4: closed-loop quality gate (up to 3 rounds)
 
-Extract the ` ```hcl ` block from the generator's reply and dispatch
-the reviewer:
+`terraform validate`/`plan` cannot check a `msgraph_resource` body —
+the provider treats it as an opaque map, and a wrong body only fails
+as a 400 at apply time. The reviewer's independent doc verification
+is therefore the only pre-apply check of the Graph request, and every
+revised draft must go back through it.
 
-- `subagent_type: agent-tf-reviewer`, prompt body:
-  ```
-  original_block: |
-    <the generated resource block(s)>
-  graph_docs: |
-    <same verbatim JSON as Step 3>
-  tenant_shape: |
-    <same verbatim JSON as Step 3>
-  ```
+Loop **generator → reviewer**, at most **3 rounds total** (initial
+draft + 2 revisions):
 
-- If the reviewer reports only `info` findings (or none), or its diff
-  says `# No changes proposed.` (warnings that are pure caveats — beta
-  surface, license/permission notes — need no revision): accept the
-  draft as final.
-- If it reports `error` or `warning` findings **with diff changes**:
-  re-dispatch
-  `agent-tf-generator` **once**, adding to the Step 3 prompt body:
-  ```
-  prior_draft: |
-    <the generator's previous hcl block, verbatim>
-  revision_notes:
-    - <one line per error/warning finding>
-  ```
-  Accept the revised draft as final. **Max one revision round** — do
-  not loop again even if findings remain; surface them instead.
+1. Extract the ` ```hcl ` block from the generator's reply and
+   dispatch the reviewer:
+
+   - `subagent_type: agent-tf-reviewer`, prompt body:
+     ```
+     original_block: |
+       <the generated resource block(s)>
+     graph_docs_path: <scratchpad>/graph_docs.json
+     tenant_shape_path: <scratchpad>/tenant_shape.json
+     ```
+     Add a `confirmed_facts:` list for anything you verified yourself
+     out-of-band (a provider argument, an api_version), so the reviewer
+     spends its fetch budget on what's still unknown instead of
+     re-checking settled ground. On round 2+, also list which prior
+     findings were fixed so it doesn't re-raise them.
+
+2. **Accept** the draft as final if the reviewer reports no `error`
+   findings and no `warning` findings **with diff changes** — i.e.
+   only `info` findings, pure-caveat warnings (beta surface,
+   license/permission notes, missing-validation-block warnings you
+   choose to keep), or a diff that says `# No changes proposed.`
+   For a conditional access policy, acceptance additionally requires
+   a security summary to exist (the reviewer's `### Security summary`
+   or the README's `## Security summary`); a missing summary is a
+   revision note like any other finding — it consumes a round from
+   the same 3-round cap, never an extra dispatch.
+
+3. Otherwise, if rounds remain, re-dispatch `agent-tf-generator` with
+   the Step 3 prompt body plus:
+   ```
+   prior_draft: |
+     <the generator's previous hcl block, verbatim>
+   revision_notes:
+     - <one line per error/warning finding>
+   ```
+   Then go back to 1: **the revised draft is re-dispatched to the
+   reviewer** — never accept a revision unreviewed.
+
+   Keep revision rounds cheap and correct:
+
+   - **Fold in what you can verify yourself.** If a finding hinges on a
+     fact you can check directly — a Terraform provider argument or
+     resource type (the registry renders client-side; fetch
+     `raw.githubusercontent.com/<owner>/<provider-repo>/main/docs/...`
+     instead), or whether an endpoint is beta-only — check it and pass
+     the answer as a CONFIRMED fact in `revision_notes`. Telling the
+     generator the answer costs a fraction of letting it search, and it
+     stops the reviewer re-flagging the same item next round.
+   - **Vet the reviewer's proposed diff before relaying it.** It is a
+     recommendation, not a verdict. If a proposed fix is wrong or a
+     no-op, say so explicitly in the revision note and state the
+     correct fix instead — do not pass through a change that would ship
+     a false sense of safety.
+   - **Batch every finding into one round.** Never spend a round on a
+     single finding when several are open.
+   - **Don't re-litigate settled items.** Each round, tell the reviewer
+     which findings are already fixed and which facts are CONFIRMED.
+
+4. If `error` findings remain after round 3: stop looping, but do NOT
+   silently accept. Prepend this comment block to the final HCL
+   before writing it in Step 5, and repeat the findings in Step 6:
+   ```hcl
+   # KNOWN ISSUES (unresolved review findings):
+   # - [error] <finding>
+   # ...
+   # Review these against the cited docs before terraform apply —
+   # terraform validate/plan will NOT catch body errors.
+   ```
 
 ## Step 5: write files
 
-Write exactly two files (the only writes this command makes):
+Write exactly two files into the project (plus the Step 2a scratchpad
+grounding files, which are throwaway):
 
 - `generated/<slug>/main.tf` — the final ` ```hcl ` block content.
 - `generated/<slug>/README.md` — the generator's ` ```markdown `
@@ -116,14 +218,45 @@ Report to the user:
 
 1. The file paths written.
 2. The final HCL (fenced).
-3. The reviewer's findings — including any that the revision pass
-   fixed and any that remain open.
+3. The reviewer's findings — how many review rounds ran, which
+   findings the revision passes fixed, and any that remain open.
+   Remind the user that `terraform validate`/`plan` cannot validate a
+   `msgraph_resource` body, so open `error` findings mean the apply
+   will likely fail with a Graph 400.
 4. References (doc URLs from the fetchers).
+5. **If the requirement is a conditional access policy**: the
+   **Security summary** — surface the reviewer's `### Security
+   summary` section (falling back to the README's `## Security
+   summary`) verbatim and prominently, directly after the HCL. No
+   extra dispatches here — the Step 4 acceptance gate already
+   guarantees it exists; if rounds were exhausted without one, say
+   so alongside the KNOWN ISSUES block instead.
+
+## Cost discipline
+
+This pipeline can spend hundreds of thousands of tokens if the loop is
+run loosely. Past failure mode: a single generator draft made 61 tool
+calls and cost 345k tokens, and an under-fetching reviewer forced two
+extra rounds. Keep it tight:
+
+- **The generator authors; it does not research.** It gets 1
+  code-sample search on a first draft and **0** on revisions. If a
+  reply shows it searching repeatedly, that is the bug — supply the
+  missing fact as a CONFIRMED note rather than dispatching it again.
+- **The reviewer should spend its fetch budget.** Up to 4 fetches, and
+  under-verifying is the expensive error: one unverified endpoint costs
+  a whole extra generator round.
+- **Round 1 should usually be enough.** Two rounds is normal for a
+  multi-resource requirement; three means grounding was thin — note in
+  Step 6 what was missing.
+- **Never dispatch an agent to learn something you can check in one
+  tool call yourself.**
 
 ## Safety rails
 
-- Never modify `.mcp.json`, `.claude/`, or anything outside
-  `generated/<slug>/`.
+- Never modify `.mcp.json` or `.claude/`. The only project writes are
+  the two files in `generated/<slug>/`; the Step 2a grounding files go
+  to the session scratchpad, never into the repo.
 - Never echo credentials from `.mcp.json` (CLIENT_SECRET, etc.).
 - Never run `terraform apply` or any Graph write. The tenant is only
   touched by the lookup agent's single read-only GET; the generated
